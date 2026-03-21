@@ -8,6 +8,9 @@
 #   ./build_pc.sh
 #   Place your disc image (.ciso/.iso/.gcm) in pc/build32/bin/rom/
 #   Run the binary from pc/build32/bin/
+#
+# Optional: CMAKE_RECONFIGURE=1 to force CMake reconfigure.
+# Optional: EXTRA_CMAKE_ARGS="..." extra flags passed to cmake (one line).
 
 set -e
 
@@ -48,7 +51,12 @@ linux_cmake_build() {
 
     if [ ! -f CMakeCache.txt ] || [ "${CMAKE_RECONFIGURE:-}" = 1 ]; then
         echo "=== Configuring CMake ($generator) ==="
-        cmake "$PC_DIR" -G "$generator" "$@"
+        # shellcheck disable=SC2206
+        EXTRA_CMAKE=( )
+        if [ -n "${EXTRA_CMAKE_ARGS:-}" ]; then
+            read -r -a EXTRA_CMAKE <<< "${EXTRA_CMAKE_ARGS}"
+        fi
+        cmake "$PC_DIR" -G "$generator" "$@" "${EXTRA_CMAKE[@]}"
     fi
 
     echo "=== Building PC port ==="
@@ -113,9 +121,13 @@ build_msys2_mingw32() {
     mkdir -p "$BUILD_DIR"
     cd "$BUILD_DIR"
 
-    if [ ! -f Makefile ]; then
-        echo "=== Configuring CMake ==="
-        cmake "$PC_DIR" -G "MinGW Makefiles"
+    if [ ! -f CMakeCache.txt ] || [ "${CMAKE_RECONFIGURE:-}" = 1 ]; then
+        echo "=== Configuring CMake (MinGW Makefiles) ==="
+        EXTRA_CMAKE=( )
+        if [ -n "${EXTRA_CMAKE_ARGS:-}" ]; then
+            read -r -a EXTRA_CMAKE <<< "${EXTRA_CMAKE_ARGS}"
+        fi
+        cmake "$PC_DIR" -G "MinGW Makefiles" "${EXTRA_CMAKE[@]}"
     fi
 
     echo "=== Building PC port ==="

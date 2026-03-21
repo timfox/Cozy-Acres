@@ -56,7 +56,13 @@ Build:
 
 ### Linux (native)
 
-Install dependencies (Debian/Ubuntu example; enable the `i386` architecture if your distro uses multiarch):
+Install dependencies (Debian/Ubuntu example; enable the `i386` architecture if your distro uses multiarch). You can run:
+
+```bash
+./scripts/install-linux-pc-deps.sh
+```
+
+Or install the same packages manually:
 
 ```bash
 sudo dpkg --add-architecture i386   # if not already enabled

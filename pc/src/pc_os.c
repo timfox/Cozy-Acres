@@ -242,12 +242,17 @@ void OSInit(void) {
                 arena_memory = (u8*)VirtualAlloc((void*)(uintptr_t)base,
                     PC_MAIN_MEMORY_SIZE, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #else
-                #ifndef MAP_FIXED_NOREPLACE
-                #define MAP_FIXED_NOREPLACE 0x100000
-                #endif
+                /* Prefer MAP_FIXED_NOREPLACE (Linux 4.17+) so we do not clobber an
+                 * existing mapping. Older libc without the macro: MAP_FIXED only. */
+#ifdef MAP_FIXED_NOREPLACE
                 arena_memory = (u8*)mmap((void*)(uintptr_t)base, PC_MAIN_MEMORY_SIZE,
                     PROT_READ | PROT_WRITE,
                     MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED_NOREPLACE, -1, 0);
+#else
+                arena_memory = (u8*)mmap((void*)(uintptr_t)base, PC_MAIN_MEMORY_SIZE,
+                    PROT_READ | PROT_WRITE,
+                    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
+#endif
                 if (arena_memory == MAP_FAILED) arena_memory = NULL;
 #endif
                 if (arena_memory) break;

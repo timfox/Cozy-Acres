@@ -1,0 +1,49 @@
+# Build the PC port on Linux (32-bit). Catches missing pkg-config / linker issues early.
+name: PC port (Linux i686)
+
+on:
+  push:
+    paths:
+      - "pc/**"
+      - "build_pc.sh"
+      - "src/**"
+      - "include/**"
+      - ".github/workflows/pc-linux.yml"
+  pull_request:
+    paths:
+      - "pc/**"
+      - "build_pc.sh"
+      - "src/**"
+      - "include/**"
+      - ".github/workflows/pc-linux.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install 32-bit toolchain and dependencies
+        run: |
+          set -eux
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            ninja-build \
+            pkg-config \
+            gcc-multilib \
+            g++-multilib \
+            libsdl2-dev:i386 \
+            libgl1-mesa-dev:i386
+
+      - name: Build
+        run: ./build_pc.sh
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnimalCrossing-linux-i686
+          path: pc/build32/bin/AnimalCrossing
+          if-no-files-found: error
