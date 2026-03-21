@@ -463,7 +463,7 @@ extern void Nas_ReleaseGroup(group* grp) {
     }
 }
 
-extern void Nas_AddList(link* root, link* list) {
+extern void Nas_AddList(jal_link* root, jal_link* list) {
     if (list->prev != nullptr) {
         static BOOL first = TRUE;
 
@@ -487,8 +487,8 @@ extern void Nas_AddList(link* root, link* list) {
     }
 }
 
-extern void* Nas_GetList(link* root) {
-    link* list = root->prev;
+extern void* Nas_GetList(jal_link* root) {
+    jal_link* list = root->prev;
 
     if (list == root) {
         return nullptr;

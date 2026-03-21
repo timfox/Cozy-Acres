@@ -25,7 +25,7 @@ extern void Nas_Release_Channel(note* n);
 extern void Nas_Release_Channel_Force(note* n);
 extern void Nas_EntryTrack(channel* chan, note* n);
 
-extern void Nas_CutList(link* l);
+extern void Nas_CutList(jal_link* l);
 extern void Nas_StopVoice(channel* chan);
 
 extern void Nas_ChannelInit(void);

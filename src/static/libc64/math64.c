@@ -5,7 +5,11 @@ f32 fatan2(f32 x, f32 y) {
     return atan2(x, y);
 }
 
+#if defined(TARGET_PC) && defined(__linux__)
+f32 m64_fsqrt(f32 x) {
+#else
 f32 fsqrt(f32 x) {
+#endif
     return sqrtf(x);
 }
 

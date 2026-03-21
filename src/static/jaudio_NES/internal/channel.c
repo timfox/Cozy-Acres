@@ -13,7 +13,7 @@
 #include <dolphin/os.h>
 
 static void Nas_smzSetPitch(channel* chan, f32 pitch);
-static void Nas_AddListHead(link* list, link* l);
+static void Nas_AddListHead(jal_link* list, jal_link* l);
 
 static void Nas_smzSetParam(channel* chan, drvparam* param) {
     f32 volL;
@@ -654,7 +654,7 @@ extern void Nas_Release_Channel_Force(note* n) {
     __Nas_Release_Channel_Main(n, ADSR_STATUS_RELEASE);
 }
 
-static void __Nas_InitList(link* l) {
+static void __Nas_InitList(jal_link* l) {
     l->prev = l;
     l->next = l;
     l->numAfter = 0;
@@ -685,9 +685,9 @@ extern void Nas_InitChannelList(void) {
 
 extern void Nas_DeAllocAllVoices(chnode* node) {
     s32 i;
-    link* src;
-    link* cur;
-    link* dst;
+    jal_link* src;
+    jal_link* cur;
+    jal_link* dst;
 
     for (i = 0; i < 4; i++) {
         switch (i) {
@@ -725,8 +725,8 @@ extern void Nas_AllocVoices(chnode* node, s32 count) {
     s32 i;
     s32 j;
     channel* chan;
-    link* src;
-    link* dst;
+    jal_link* src;
+    jal_link* dst;
     
     Nas_DeAllocAllVoices(node);
     
@@ -766,7 +766,7 @@ extern void Nas_AllocVoices(chnode* node, s32 count) {
     }
 }
 
-static void Nas_AddListHead(link* list, link* l) {
+static void Nas_AddListHead(jal_link* list, jal_link* l) {
     if (l->prev == NULL) {
         l->prev = list;
         l->next = list->next;
@@ -777,7 +777,7 @@ static void Nas_AddListHead(link* list, link* l) {
     }
 }
 
-extern void Nas_CutList(link* l) {
+extern void Nas_CutList(jal_link* l) {
     if (l->prev != NULL) {
         l->prev->next = l->next;
         l->next->prev = l->prev;
@@ -785,9 +785,9 @@ extern void Nas_CutList(link* l) {
     }
 }
 
-static channel* __Nas_GetLowerPrio(link* l, s32 prio) {
-    link* cur = l->next;
-    link* best;
+static channel* __Nas_GetLowerPrio(jal_link* l, s32 prio) {
+    jal_link* cur = l->next;
+    jal_link* best;
 
     if (cur == l) {
         return NULL;
