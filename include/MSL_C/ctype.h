@@ -1,5 +1,7 @@
-#ifndef _CTYPE_H
-#define _CTYPE_H
+/* Use a distinct guard: defining _CTYPE_H before #include <ctype.h> would skip
+ * glibc's ctype.h (same guard), leaving tolower/isalpha etc. undeclared on Linux. */
+#ifndef _MSL_C_CTYPE_H
+#define _MSL_C_CTYPE_H
 
 #ifdef TARGET_PC
 #include <ctype.h> // Conflicts can happen otherwise in certain compiler versions
@@ -48,4 +50,4 @@ inline int _toupper(int c) {
 }
 #endif
 #endif /* !TARGET_PC */
-#endif /* _CTYPE_H */
+#endif /* _MSL_C_CTYPE_H */
