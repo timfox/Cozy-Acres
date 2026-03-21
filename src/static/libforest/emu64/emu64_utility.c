@@ -5,11 +5,17 @@
 #include "MSL_C/w_math.h"
 
 #ifdef TARGET_PC
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <sys/mman.h>
+#endif
+
 /* Executable image range from pc_main.c — BSS/data can collide with N64 segments */
 extern "C" unsigned int pc_image_base;
 extern "C" unsigned int pc_image_end;
 
-/* Page-granularity cache for VirtualQuery results.
+/* Page-granularity cache for OS memory-query results.
  * Avoids repeated syscalls for addresses in the same page. */
 #define SEG2K0_PAGE_CACHE_SIZE 32
 static struct { u32 page; u8 committed; } seg2k0_page_cache[SEG2K0_PAGE_CACHE_SIZE];
@@ -24,11 +30,19 @@ static int seg2k0_is_committed(u32 addr) {
         }
     }
     /* Cache miss — query the OS */
-    MEMORY_BASIC_INFORMATION mbi;
     int committed = 0;
+#if defined(_WIN32)
+    MEMORY_BASIC_INFORMATION mbi;
     if (VirtualQuery((void*)addr, &mbi, sizeof(mbi)) > 0 && mbi.State == MEM_COMMIT) {
         committed = 1;
     }
+#else
+    /* POSIX (Linux, etc.): msync on an unmapped page fails with ENOMEM (VirtualQuery analog). */
+    void* p = (void*)(uintptr_t)page;
+    if (msync(p, 4096, MS_ASYNC) == 0) {
+        committed = 1;
+    }
+#endif
     seg2k0_page_cache[seg2k0_cache_next].page = page;
     seg2k0_page_cache[seg2k0_cache_next].committed = committed;
     seg2k0_cache_next = (seg2k0_cache_next + 1) % SEG2K0_PAGE_CACHE_SIZE;
