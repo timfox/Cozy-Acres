@@ -83,7 +83,10 @@ typedef u32 unknown;
 #endif
 #endif
 #ifndef __cplusplus
+/* PC CMake may pass -Dnullptr=NULL for C; avoid redefining */
+#ifndef nullptr
 #define nullptr 0
+#endif
 #endif
 
 // #ifdef __MWERKS__

@@ -2,6 +2,11 @@
 #ifndef PC_PLATFORM_H
 #define PC_PLATFORM_H
 
+/* glibc: dladdr() / Dl_info in <dlfcn.h> are GNU extensions; must be set before any system header */
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
 /* 32-bit required: decomp code (JSystem, emu64) casts pointers to u32 */
 #include <stdint.h>
 #if UINTPTR_MAX != 0xFFFFFFFFu
