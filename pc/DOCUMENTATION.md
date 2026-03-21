@@ -330,14 +330,17 @@ Three layers:
 
 ```bash
 # 1. Place disc image in pc/build32/bin/rom/
-# 2. Build (from MSYS2 MINGW32 shell):
+# 2. Build:
+#    - Linux: ./build_pc.sh  (needs 32-bit toolchain + 32-bit SDL2 — see README)
+#    - Windows: MSYS2 MINGW32 shell: ./build_pc.sh
 ./build_pc.sh
 
 # 3. Run:
-pc/build32/bin/AnimalCrossing.exe --verbose
+#    Linux:   pc/build32/bin/AnimalCrossing --verbose
+#    Windows: pc/build32/bin/AnimalCrossing.exe --verbose
 ```
 
-`build_pc.sh` handles CMake configuration and build in one step.
+`build_pc.sh` handles CMake configuration and build in one step (Unix Makefiles or Ninja on Linux, MinGW Makefiles on Windows).
 
 ### Cross-Compilation
 

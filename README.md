@@ -22,12 +22,15 @@ The game reads all assets directly from the disc image at startup. No extraction
 
 Only needed if you want to modify the code. Otherwise, use the [pre-built release](https://github.com/flyngmt/ACGC-PC-Port/releases) above.
 
+The PC port is **32-bit only** (the decomp relies on pointer-to-`u32` patterns). On 64-bit Linux you need multilib (gcc `-m32`) or an i686 cross toolchain, plus **32-bit** SDL2 and OpenGL development libraries.
+
 ### Requirements
 
-- **MSYS2** (https://www.msys2.org/)
 - **Animal Crossing (USA) disc image** (ISO, GCM, or CISO format)
+- **Windows:** [MSYS2](https://www.msys2.org/) with the **MINGW32** (32-bit) environment
+- **Linux:** a 32-bit-capable GCC/Clang toolchain, 32-bit SDL2, and 32-bit OpenGL/Mesa dev packages (see below)
 
-### MSYS2 Packages
+### Windows (MSYS2)
 
 Open **MSYS2 MINGW32** from your Start menu and install:
 
@@ -35,28 +38,47 @@ Open **MSYS2 MINGW32** from your Start menu and install:
 pacman -S mingw-w64-i686-gcc mingw-w64-i686-cmake mingw-w64-i686-SDL2 mingw-w64-i686-make
 ```
 
-### Build Steps
+Build:
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/flyngmt/ACGC-PC-Port.git
-   cd ACGC-PC-Port
-   ```
+1. Clone the repository and `cd` into it.
 
-2. Build (from **MSYS2 MINGW32** shell):
+2. From the **MINGW32** shell:
    ```bash
    ./build_pc.sh
    ```
 
-3. Place your disc image in the `rom/` folder:
-   ```
-   pc/build32/bin/rom/YourGame.ciso
-   ```
+3. Place your disc image under `pc/build32/bin/rom/` (for example `YourGame.ciso`).
 
 4. Run:
    ```bash
    pc/build32/bin/AnimalCrossing.exe
    ```
+
+### Linux (native)
+
+Install dependencies (Debian/Ubuntu example; enable the `i386` architecture if your distro uses multiarch):
+
+```bash
+sudo dpkg --add-architecture i386   # if not already enabled
+sudo apt update
+sudo apt install build-essential cmake ninja-build pkg-config \
+  gcc-multilib g++-multilib \
+  libsdl2-dev:i386 libgl1-mesa-dev:i386
+```
+
+Alternatively, use the `i686-linux-gnu-*` cross compilers from `gcc-i686-linux-gnu` / `g++-i686-linux-gnu` and point CMake at `pc/cmake/Toolchain-linux32.cmake` (see comments in that file for `PKG_CONFIG_LIBDIR` if SDL2 is not detected).
+
+Build:
+
+```bash
+./build_pc.sh
+```
+
+Place your disc image under `pc/build32/bin/rom/`, then run:
+
+```bash
+pc/build32/bin/AnimalCrossing
+```
 
 ## Controls
 
