@@ -3,6 +3,12 @@
 
 #include "stddef.h"
 
+#ifdef TARGET_PC
+/* Use libc declarations; C++ glibc headers attach noexcept etc. — do not
+ * predeclare memcpy/memset/memcmp here (conflicts with <string.h>). */
+#include <string.h>
+#else
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -19,4 +25,5 @@ void __fill_mem(void * dst, int val, unsigned long n);
 #ifdef __cplusplus
 };
 #endif
+#endif /* !TARGET_PC */
 #endif
