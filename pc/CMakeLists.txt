@@ -301,8 +301,6 @@ list(FILTER GAME_C_SOURCES EXCLUDE REGEX ".*/emu64_utility\\.c$")
 # Only files that truly need C++ (std::, extern "C", etc.) - NOT just for nullptr
 set_source_files_properties(
     "${DECOMP_ROOT}/src/static/libforest/emu64/emu64.c"
-    # ja_calc.c uses std::sinf, std::sqrtf
-    "${DECOMP_ROOT}/src/static/jaudio_NES/internal/ja_calc.c"
     # sample.c: reinterpret_cast replaced with C cast under TARGET_PC, no longer needs C++
     # jammain_2.c uses extern "C"
     "${DECOMP_ROOT}/src/static/jaudio_NES/internal/jammain_2.c"

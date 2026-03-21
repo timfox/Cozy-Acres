@@ -1,6 +1,6 @@
 #ifdef TARGET_PC
-/* On PC, <cmath> provides std::sqrtf / std::sinf (ja_calc.c is compiled as C++) */
-#include <cmath>
+/* On PC use ISO C math (sqrtf/sinf from <math.h>); no Metrowerks std:: wrappers */
+#include <math.h>
 #ifndef HALF_PI
 #define HALF_PI    1.5707964f
 #endif
