@@ -1,6 +1,6 @@
 #ifdef TARGET_PC
-/* On PC, system <cmath> provides all needed functions */
-#include <math.h>
+/* On PC, <cmath> provides std::sqrtf / std::sinf (ja_calc.c is compiled as C++) */
+#include <cmath>
 #ifndef HALF_PI
 #define HALF_PI    1.5707964f
 #endif
