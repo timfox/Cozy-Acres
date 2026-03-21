@@ -1,4 +1,5 @@
 #include <MSL_C/ctype.h>
+#include <cctype>
 #include <string.h>
 
 #include "JSystem/JKernel/JKRArchive.h"
@@ -159,7 +160,7 @@ void JKRArchive::CArcName::store(const char* name) {
     mHash = 0;
     int count = 0;
     while (*name) {
-        int lower = tolower(*name);
+        int lower = std::tolower(static_cast<unsigned char>(*name));
         mHash = lower + mHash * 3;
         if (count < 0x100) {
             mString[count++] = lower;
@@ -174,7 +175,7 @@ const char* JKRArchive::CArcName::store(const char* name, char endChar) {
     mHash = 0;
     int count = 0;
     for (; *name && *name != endChar; name++) {
-        int lower = tolower(*name);
+        int lower = std::tolower(static_cast<unsigned char>(*name));
         mHash = lower + mHash * 3;
         if (count < 0x100) {
             mString[count++] = lower;
