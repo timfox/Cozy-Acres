@@ -24,7 +24,8 @@ else
 fi
 
 echo "Using $ENGINE with --platform linux/amd64 ..."
-exec "$ENGINE" run --rm -it --platform linux/amd64 \
+# No -t: works from CI and non-TTY environments (avoid "input device is not a TTY").
+exec "$ENGINE" run --rm --platform linux/amd64 \
     -v "$ROOT:/src" \
     -w /src \
     ubuntu:24.04 \
