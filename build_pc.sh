@@ -20,6 +20,22 @@ BIN_DIR="$BUILD_DIR/bin"
 PC_DIR="$SCRIPT_DIR/pc"
 TOOLCHAIN_FILE="$PC_DIR/cmake/Toolchain-linux32.cmake"
 
+# --- Linux: i386 SDL/Mesa .deb packages exist for amd64 multiarch, not for ARM64 ---
+linux_host_can_use_i386_apt_packages() {
+    case "$(uname -m)" in
+        x86_64|i686|i386) ;;
+        *) return 1 ;;
+    esac
+    if command -v dpkg >/dev/null 2>&1; then
+        local d
+        d="$(dpkg --print-architecture 2>/dev/null || true)"
+        if [ -n "$d" ] && [ "$d" != "amd64" ] && [ "$d" != "i386" ]; then
+            return 1
+        fi
+    fi
+    return 0
+}
+
 # --- Linux: locate sdl2.pc for i386 (multilib / multiarch) ---
 linux_find_sdl2_pkgconfig() {
     local d
@@ -68,6 +84,22 @@ linux_cmake_build() {
 }
 
 build_linux() {
+    if ! linux_host_can_use_i386_apt_packages; then
+        echo "Error: This machine ($(uname -m); dpkg: $(dpkg --print-architecture 2>/dev/null || echo n/a)) cannot use Ubuntu/Debian i386 multiarch dev packages."
+        echo ""
+        echo "The PC port is always 32-bit x86 (i686). libsdl2-dev:i386 and libgl1-mesa-dev:i386 are for x86_64 hosts only."
+        echo "A 32-bit x86 AnimalCrossing binary also cannot load ARM libSDL2 — the \"libSDL2-2.0.so.0: No such file\" error on ARM is expected."
+        echo ""
+        echo "What to do:"
+        echo "  1. Build inside an emulated x86_64 environment:"
+        echo "       ./scripts/docker-build-linux-amd64.sh"
+        echo "  2. Copy the repo (or just pc/build32/bin/) to a real x86_64 Linux PC."
+        echo "  3. There install runtime libs and run:"
+        echo "       ./scripts/install-linux-pc-deps.sh --runtime"
+        echo "       pc/build32/bin/AnimalCrossing"
+        exit 1
+    fi
+
     local SDL_PC
     SDL_PC="$(linux_find_sdl2_pkgconfig || true)"
 
@@ -92,15 +124,18 @@ build_linux() {
         echo "Error: No 32-bit C/C++ toolchain found."
         echo ""
         echo "This project must be built as 32-bit (see pc/CMakeLists.txt)."
-        echo "On Debian/Ubuntu, install for example:"
-        echo "  sudo dpkg --add-architecture i386   # if needed"
-        echo "  sudo apt update"
-        echo "  sudo apt install gcc-multilib g++-multilib libsdl2-dev:i386 \\"
-        echo "                 libgl1-mesa-dev:i386 pkg-config"
-        echo ""
-        echo "Or use a cross compiler:"
-        echo "  sudo apt install gcc-i686-linux-gnu g++-i686-linux-gnu libsdl2-dev:i386"
-        echo "  (adjust toolchain in pc/cmake/Toolchain-linux32.cmake if compiler names differ)"
+        if linux_host_can_use_i386_apt_packages; then
+            echo "On Debian/Ubuntu (x86_64), run:"
+            echo "  ./scripts/install-linux-pc-deps.sh"
+            echo ""
+            echo "Or manually:"
+            echo "  sudo dpkg --add-architecture i386   # if needed"
+            echo "  sudo apt update"
+            echo "  sudo apt install gcc-multilib g++-multilib libsdl2-dev:i386 \\"
+            echo "                 libgl1-mesa-dev:i386 pkg-config"
+            echo ""
+            echo "Or: sudo apt install gcc-i686-linux-gnu g++-i686-linux-gnu libsdl2-dev:i386 libgl1-mesa-dev:i386"
+        fi
         exit 1
     fi
 
