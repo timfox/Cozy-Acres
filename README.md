@@ -56,43 +56,62 @@ Build:
 
 ### Linux (native)
 
-**x86_64 only for host packages:** `libsdl2-dev:i386` and friends are multiarch packages for **amd64** hosts. On **ARM64** (Apple Silicon, many SBCs), `apt` will not find those packages — the game still targets **32-bit x86**, not ARM. On ARM64 use:
+The shipped executable is always **32-bit x86 (i686)**. On **x86_64 Ubuntu** it runs fine; you need **multilib / i386** build libraries and, to run it, matching **i386 runtime** libraries (SDL2, OpenGL).
 
-```bash
-./scripts/docker-build-linux-amd64.sh
-```
+#### Ubuntu on x86_64 (do this first)
 
-(requires Docker or Podman with `linux/amd64` support). The binary is **i686**; run it on x86_64 Linux or under `qemu-i386` if you need to execute it on ARM.
+1. Clone the repo and `cd` into it.
 
-On **x86_64** Debian/Ubuntu, install dependencies (enable the `i386` architecture if your distro uses multiarch). You can run:
+2. Install build dependencies (adds `i386` if needed, prefers `gcc -m32`, otherwise installs `i686-linux-gnu-*`):
 
-```bash
-./scripts/install-linux-pc-deps.sh
-```
+   ```bash
+   ./scripts/install-linux-pc-deps.sh
+   ```
 
-Or install the same packages manually:
+   Or manually:
 
-```bash
-sudo dpkg --add-architecture i386   # if not already enabled
-sudo apt update
-sudo apt install build-essential cmake ninja-build pkg-config \
-  gcc-multilib g++-multilib \
-  libsdl2-dev:i386 libgl1-mesa-dev:i386
-```
+   ```bash
+   sudo dpkg --add-architecture i386   # once, if not already
+   sudo apt update
+   sudo apt install build-essential cmake ninja-build pkg-config \
+     gcc-multilib g++-multilib \
+     libsdl2-dev:i386 libgl1-mesa-dev:i386
+   ```
 
-Alternatively, use the `i686-linux-gnu-*` cross compilers from `gcc-i686-linux-gnu` / `g++-i686-linux-gnu` and point CMake at `pc/cmake/Toolchain-linux32.cmake` (see comments in that file for `PKG_CONFIG_LIBDIR` if SDL2 is not detected).
+3. Build:
 
-Build:
+   ```bash
+   ./build_pc.sh
+   ```
 
-```bash
-./build_pc.sh
-```
+4. Install **runtime** 32-bit libs (needed to launch the binary; dev packages alone are not always enough):
 
-Place your disc image under `pc/build32/bin/rom/`, then run:
+   ```bash
+   sudo apt install libsdl2-2.0-0:i386 libgl1:i386
+   ```
 
-```bash
-pc/build32/bin/AnimalCrossing
-```
+5. Put your USA disc image under `pc/build32/bin/rom/` (`.iso`, `.gcm`, or `.ciso`).
+
+6. Run:
+
+   ```bash
+   pc/build32/bin/AnimalCrossing --verbose
+   ```
+
+If CMake cannot find SDL2, ensure `PKG_CONFIG_LIBDIR` points at the directory that contains `sdl2.pc` for i386 (often `/usr/lib/i386-linux-gnu/pkgconfig`); see `pc/cmake/Toolchain-linux32.cmake`.
+
+#### Raspberry Pi and other ARM64
+
+There is **no ARM-native** target in this repository yet (the game code assumes **x86** and 32-bit pointers). A Raspberry Pi **cannot** run this binary natively.
+
+- **Playing on a Pi:** use remote desktop / game streaming from an **x86_64** machine that runs the game, or third-party x86 emulation (e.g. Box86, qemu-user) — unsupported here and often too slow for this title.
+- **Building on a Pi:** host `apt` cannot install `libsdl2-dev:i386` like on amd64. Use a **linux/amd64** container (slower on ARM):
+
+  ```bash
+  ./scripts/docker-build-linux-amd64.sh
+  ```
+
+  The result is still an **x86** binary; copy it to an x86_64 Ubuntu/PC to run.
 
 ## Controls
 
