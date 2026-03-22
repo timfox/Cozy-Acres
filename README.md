@@ -117,6 +117,15 @@ There is **no ARM-native** target in this repository yet (the game code assumes 
 
   The result is still an **x86** binary; copy it to an x86_64 Ubuntu/PC to run.
 
+#### "Unable to locate package libsdl2-2.0-0:i386"
+
+Run **`./scripts/diagnose-apt-i386.sh`**.
+
+- If **`dpkg --print-architecture`** is **`arm64`** (or you regularly use **`ports.ubuntu.com`** as your main Ubuntu mirror), you are on **ARM64**. Ubuntu will not offer `:i386` packages in a way that lets this **x86** game load SDL2. Run **`AnimalCrossing` on an Intel/AMD (amd64) Linux install** instead.
+- If you are on **real amd64** but apt still cannot see `:i386`, your **`sources.list`** may list only **`[arch=amd64]`** or **`[arch=arm64]`**. Main Ubuntu lines should allow both amd64 and i386, for example:  
+  `deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu questing main universe`  
+  Then: `sudo dpkg --add-architecture i386 && sudo apt update` and retry **`./scripts/install-linux-runtime-i386.sh`**.
+
 ## Controls
 
 Keyboard bindings are customizable via `keybindings.ini` (next to the executable). Mouse buttons (Mouse1/Mouse2/Mouse3) can also be assigned.
