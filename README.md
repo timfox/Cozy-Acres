@@ -84,11 +84,13 @@ The shipped executable is always **32-bit x86 (i686)**. On **x86_64 Ubuntu** it 
    ./build_pc.sh
    ```
 
-4. If you used `./scripts/install-linux-pc-deps.sh` **without** `--runtime`, install 32-bit runtime libs:
+4. If you used `./scripts/install-linux-pc-deps.sh` **without** `--runtime`, install 32-bit runtime libs (**x86_64 Ubuntu only**):
 
    ```bash
-   sudo apt install libsdl2-2.0-0:i386 libgl1:i386
+   ./scripts/install-linux-runtime-i386.sh
    ```
+
+   (or: `sudo apt install libsdl2-2.0-0:i386 libgl1:i386`)
 
 5. Optional: install a launcher — see `packaging/linux/README.md`.
 
