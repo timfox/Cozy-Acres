@@ -7,6 +7,10 @@
 #include "pc_assets.h"
 #include "pc_disc.h"
 
+#if defined(__linux__)
+#include <dlfcn.h>
+#endif
+
 /* prefer discrete GPU on laptops */
 #ifdef _WIN32
 __declspec(dllexport) unsigned long NvOptimusEnablement = 1;
@@ -100,15 +104,72 @@ unsigned int pc_crash_get_addr(void) {
     return pc_last_crash_addr;
 }
 
+#if defined(__linux__)
+/* Optional: dlopen libLLVM with RTLD_GLOBAL before SDL so Mesa's nested dlopen may reuse one
+ * LLVM copy. On some stacks (e.g. Ubuntu 25.10 i386) the *first* dlopen of libLLVM SIGSEGVs
+ * inside LLVM static init — enabling this only makes the crash happen here instead of in
+ * GLX/EGL. Default is off; set PC_LLVM_PRELOAD=1 to try it on distros where it helps. */
+static void pc_linux_preload_llvm_rtld_global(void) {
+    static const char* const candidates[] = {
+        "libLLVM.so.20.1",
+        "libLLVM.so.19.1",
+        "libLLVM-20.so",
+        "libLLVM-20.so.1",
+        "/lib/i386-linux-gnu/libLLVM.so.20.1",
+        "/usr/lib/i386-linux-gnu/libLLVM.so.20.1",
+        "libLLVM.so.18.1",
+        NULL,
+    };
+    const char* opt = getenv("PC_LLVM_PRELOAD");
+    if (opt == NULL || strcmp(opt, "1") != 0)
+        return;
+    const char* last_err = NULL;
+    for (int i = 0; candidates[i] != NULL; i++) {
+        void* h = dlopen(candidates[i], RTLD_NOW | RTLD_GLOBAL);
+        if (h != NULL) {
+            fprintf(stderr, "[PC] Preloaded %s (RTLD_GLOBAL) before SDL_Init (PC_LLVM_PRELOAD=1)\n",
+                    candidates[i]);
+            fflush(stderr);
+            return;
+        }
+        last_err = dlerror();
+    }
+    fprintf(stderr, "[PC] PC_LLVM_PRELOAD=1 but no libLLVM opened; last dlerror: %s\n",
+            last_err ? last_err : "(none)");
+    fflush(stderr);
+}
+#endif
+
 void pc_platform_init(void) {
 #ifdef _WIN32
     SetProcessDPIAware();
 #elif defined(__linux__)
-    /* Hybrid graphics: prefer discrete GPU when the user has not set these (like Windows exports). */
-    setenv("DRI_PRIME", "1", 0);
-    setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
+    /* Hybrid graphics: prefer discrete GPU (like Windows exports). Skip on 32-bit builds:
+     * DRI_PRIME often pulls AMDGPU's i386 GLX/LLVM stack from /opt/amdgpu and segfaults
+     * on glXChooseVisual; 64-bit is unaffected. Set PC_USE_DISCRETE_GPU=1 to force these
+     * hints even for i686 if your setup needs them. */
+    if (sizeof(void*) > 4 || getenv("PC_USE_DISCRETE_GPU") != NULL) {
+        setenv("DRI_PRIME", "1", 0);
+        setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
+    }
+    /* 32-bit SDL on Wayland is unreliable on several distros; default to X11 unless the
+     * user chose a driver (SDL_VIDEODRIVER) or opted into Wayland (PC_SDL_USE_WAYLAND). */
+    if (getenv("PC_SDL_USE_WAYLAND") == NULL && getenv("SDL_VIDEODRIVER") == NULL) {
+        SDL_SetHintWithPriority(SDL_HINT_VIDEODRIVER, "x11", SDL_HINT_DEFAULT);
+    }
+    /* Questing-class crashes: glXChooseVisual -> dlopen LLVM. EGL on X11 can avoid that path.
+     * Opt-in: PC_X11_EGL=1. (Forced EGL breaks some AMDGPU i386 setups — see run-pc-linux-safegl.sh.) */
+    if (getenv("PC_X11_EGL") != NULL && getenv("SDL_VIDEO_X11_FORCE_EGL") == NULL) {
+        SDL_SetHintWithPriority(SDL_HINT_VIDEO_X11_FORCE_EGL, "1", SDL_HINT_OVERRIDE);
+    }
+    pc_linux_preload_llvm_rtld_global();
 #endif
+#if defined(__linux__)
+    /* VIDEO only first: fewer SDL threads while Mesa/LLVM loads during SDL_CreateWindow. */
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+#else
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
+#endif
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         exit(1);
     }
@@ -119,9 +180,18 @@ void pc_platform_init(void) {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 #ifdef PC_ENHANCEMENTS
-    if (g_pc_settings.msaa > 0) {
-        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, g_pc_settings.msaa);
+    {
+        int gl_msaa_samples = g_pc_settings.msaa;
+#if defined(__linux__)
+        /* i386 GLX multisample often segfaults before first frame; plain ./AnimalCrossing must stay safe.
+         * Set PC_MSAA=1 to request multisample from settings.ini (same as other platforms). */
+        if (getenv("PC_MSAA") == NULL)
+            gl_msaa_samples = 0;
+#endif
+        if (gl_msaa_samples > 0) {
+            SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+            SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, gl_msaa_samples);
+        }
     }
 #endif
 
@@ -162,12 +232,27 @@ void pc_platform_init(void) {
         exit(1);
     }
 
+#if defined(__linux__)
+    if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
+        fprintf(stderr, "SDL_InitSubSystem failed: %s\n", SDL_GetError());
+        SDL_GL_DeleteContext(g_pc_gl_context);
+        SDL_DestroyWindow(g_pc_window);
+        SDL_Quit();
+        exit(1);
+    }
+#endif
+
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
 
     pc_platform_update_window_size();
 
 #ifdef PC_ENHANCEMENTS
-    if (g_pc_settings.msaa > 0) {
+#if defined(__linux__)
+    if (g_pc_settings.msaa > 0 && getenv("PC_MSAA") != NULL)
+#else
+    if (g_pc_settings.msaa > 0)
+#endif
+    {
         glEnable(GL_MULTISAMPLE);
     }
 #endif
@@ -294,11 +379,9 @@ int main(int argc, char* argv[]) {
      * are extremely slow on Windows and tank FPS. */
     if (!g_pc_verbose) {
 #ifdef _WIN32
+        /* Unbuffered Win32 console I/O tanks FPS; Linux terminals are cheap enough to keep stdio. */
         freopen("NUL", "w", stdout);
         freopen("NUL", "w", stderr);
-#else
-        freopen("/dev/null", "w", stdout);
-        freopen("/dev/null", "w", stderr);
 #endif
     } else {
         setvbuf(stdout, NULL, _IONBF, 0);

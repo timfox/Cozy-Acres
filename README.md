@@ -121,10 +121,38 @@ There is **no ARM-native** target in this repository yet (the game code assumes 
 
 Run **`./scripts/diagnose-apt-i386.sh`**.
 
+- If apt prints **`Ignoring file ... invalid filename extension`** for **`ubuntu.sources.bak-before-i386-*`** (or other **`*.sources.bak*`**), run **`sudo ./scripts/apt-cleanup-sources-list-d.sh`** (default: only those patterns). Use **`sudo ./scripts/apt-cleanup-sources-list-d.sh --all-bak`** only if you also want **`*.list.bak`**, **`*~`**, **`*.old`**, etc. moved to **`/var/backups/apt-sources/`** (recover from there if needed).
 - If **`dpkg --print-architecture`** is **`arm64`**, you are on **ARM64** — run the game on **x86_64** Linux.
 - On **amd64**, Ubuntu **22.04+** often stores mirrors in **`*.sources`** (DEB822) with **`Architectures: amd64`** or **`amd64 arm64`** and **no `i386`**, so apt **never downloads** the i386 package index. `dpkg --add-architecture i386` alone is not enough.  
   **Fix:** `sudo ./scripts/fix-ubuntu-apt-i386.sh` then `sudo apt install libsdl2-2.0-0:i386 libgl1:i386`
 - Legacy **`deb`** lines instead need **`[arch=amd64,i386]`** on `archive.ubuntu.com` entries.
+
+#### Build fails: **`SDL_HINT_VIDEO_DRIVER` undeclared**
+
+SDL2 defines **`SDL_HINT_VIDEODRIVER`** (no underscore between **`VIDEO`** and **`DRIVER`**). If you see this error, **`pc/src/pc_main.c`** is out of date — sync with upstream or replace the wrong token with **`SDL_HINT_VIDEODRIVER`**.
+
+#### Segmentation fault immediately on launch
+
+- From **`pc/build32/bin`**, run **`./AnimalCrossing --verbose`** and note the last line printed before the crash.
+- **Linux i686 (current `pc_main.c`):** only **`SDL_INIT_VIDEO`** runs until after **`gladLoadGL`**; then audio/timer/gamecontroller subsystems start. **Optional** LLVM preload: set **`PC_LLVM_PRELOAD=1`** to **`dlopen` `libLLVM`** with **`RTLD_GLOBAL`** before **`SDL_Init`** (can help on some Mesa setups; on others the **first** **`dlopen` of `libLLVM` SIGSEGVs** in LLVM static init — then leave it unset). **Rebuild** with **`./build_pc.sh`**. To try EGL on X11 instead of GLX: **`PC_X11_EGL=1`** or **`./scripts/run-pc-linux-x11-egl.sh`** (still loads LLVM via Mesa on many drivers). **Container workaround:** **`./scripts/docker-run-pc-ubuntu2404.sh`** builds and runs with **24.04**’s i386 GL stack.
+- If **`gdb`** still shows **`libLLVM`** and **`llvm::ManagedStaticBase::RegisterManagedStatic`** while **`glXChooseVisual`** (GLX) or **`eglGetProcAddress`** (EGL) is on the stack, the fault is still in **Mesa’s i386 stack** (not game logic). A typical stack ends with **`dlopen` → `libGLX.so` → `glXChooseVisual` → `libSDL2` → `pc_platform_init` → `main`**. Some Ubuntu versions (e.g. **25.10**) may not publish **`mesa-utils:i386`** / **`glxgears:i386`**; rely on **`gdb`** on **`AnimalCrossing`** instead. For a distro bug report, capture: **`dpkg-query -W libllvm20 libgl1-mesa-dri libglx-mesa0 mesa-libgallium`** (exact names vary) and **`apt policy libllvm20:i386 libgl1-mesa-dri:i386`**. Further mitigations: **different Mesa/LLVM combo** (another Ubuntu release, container, or older **`libllvm*t:i386`** / **`libgl1-mesa-dri:i386`**), or a machine where **i386 GL** is known good.
+- If **`gdb`** shows the fault in **`/opt/amdgpu/.../libLLVM.so.*amdgpu`** while **`glXChooseVisual`** / **`libGLX`** is **`dlopen`**-ing the driver, the **AMDGPU i386** stack is being loaded (often broken vs Ubuntu 25.10 + Mesa). **`LIBGL_ALWAYS_SOFTWARE=1` alone does not fix that** because GLX still pulls AMDGPU first.
+  - The game used to export **`DRI_PRIME=1`** on every Linux launch; that can trigger the bad GLX path on **32-bit**. Current sources skip that on i686 (use **`PC_USE_DISCRETE_GPU=1`** if you need prime on a laptop). **Rebuild** with **`./build_pc.sh`** so that fix is in your binary.
+  - **Wayland + 32-bit SDL** often crashes on Ubuntu; force X11: **`SDL_VIDEODRIVER=x11`**. Try **`./scripts/run-pc-linux.sh`** (GPU Mesa) or **`./scripts/run-pc-linux-safegl.sh`** (llvmpipe). Both set X11 + **`DRI_PRIME=0`** + Mesa-friendly **`LD_LIBRARY_PATH`**.
+  - **Multisample (MSAA)** is **off by default on Linux** (even if **`settings.ini`** says **`msaa=4`**); set **`PC_MSAA=1`** to opt in. If it still dies in **`pc_platform_init`**, try **`./scripts/run-pc-linux.sh`** or the software GL one-liner below.
+  - **`ninja: mkdir(/src): Permission denied`** means **`pc/build32`** was configured inside Docker (`/src/pc`). **`./build_pc.sh`** removes that tree when the cache path mismatches; if you see **`rm: ... Permission denied`**, the tree is **root-owned**: run **`sudo rm -rf pc/build32`**, then **`./build_pc.sh`**. New **`docker-build-linux-amd64.sh`** runs **`chown`** on **`pc/build32`** after the build so this should not recur.
+  - After removing **`amdgpu-lib32`**, run **`sudo apt autoremove`** so orphaned **`libllvm*-amdgpu:i386`**, **`mesa-amdgpu-libgallium:i386`**, etc. are not still pulled into the process.
+  - One-liner (software): **`SDL_VIDEODRIVER=x11 DRI_PRIME=0 __GLX_VENDOR_LIBRARY_NAME=mesa LIBGL_DRIVERS_PATH=/usr/lib/i386-linux-gnu/dri LD_LIBRARY_PATH=/lib/i386-linux-gnu:/usr/lib/i386-linux-gnu LIBGL_ALWAYS_SOFTWARE=1 ./AnimalCrossing`**
+  - Last resort for 32-bit GL only: remove AMDGPU’s i386 GL packages, e.g. **`sudo apt remove libgl1-amdgpu-mesa-dri:i386`** (and related **`mesa-amdgpu-*:i386`** if you do not need them); keep the normal **`libgl1-mesa-dri:i386`** stack.
+- Rebuild on the same OS so libc/SDL match: **`./build_pc.sh`** after install scripts.
+- For a backtrace: from the repo root run **`./scripts/gdb-pc-linux.sh --verbose`**, then at the **`(gdb)`** prompt type **`run`**, and after the fault **`bt`**.  
+  You must pass the **real path** to the binary (e.g. **`~/cozyacres/pc/build32/bin/AnimalCrossing`**): **`gdb /pc/build32/...`** is wrong because **`/pc`** is not your home directory.  
+  Do not type **`gdb /path`** *inside* **`(gdb)`** (that is not a shell). Use **`file /path/to/AnimalCrossing`** to switch executables, or **`quit`** and run the helper again.
+- To attach **debug symbols** to the game binary (not Mesa): rebuild with **`COZY_PC_GDB_SYMBOLS=1 ./build_pc.sh`** (adds **`-g`**, keeps default **`-O0`** from this project’s CMake setup).
+- For a **Launchpad / distro bug** about the **`libLLVM` + `glXChooseVisual`** crash, run **`./scripts/collect-pc-linux-gl-bug-info.sh`** and paste the output.
+- **Workaround host:** **`./scripts/docker-run-pc-ubuntu2404.sh`**, or a **24.04** VM / **`distrobox`**, with **`i386`** GL packages; **questing** (25.10) has been observed to fault in **`libLLVM.so.20.1`** during the first Mesa load (**GLX** or **EGL**).
+
+If you ran **`fix-ubuntu-apt-i386.sh`** before backups were moved to **`/var/backups/apt-sources`**, remove any stray **`ubuntu.sources.bak-before-i386-*`** file still under **`/etc/apt/sources.list.d/`**. Apt will **ignore** files there with extensions it does not recognize and may print **`Ignoring file ... invalid filename extension`** — move those backups to **`/var/backups/apt-sources/`** (or delete them if you no longer need them).
 
 ## Controls
 

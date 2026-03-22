@@ -28,6 +28,8 @@ echo "Using $ENGINE with --platform linux/amd64 ..."
 exec "$ENGINE" run --rm --platform linux/amd64 \
     -v "$ROOT:/src" \
     -w /src \
+    -e COZY_BUILD_UID="$(id -u)" \
+    -e COZY_BUILD_GID="$(id -g)" \
     ubuntu:24.04 \
     bash -c '
 set -euo pipefail
@@ -41,6 +43,9 @@ apt-get install -y -qq \
   gcc-i686-linux-gnu g++-i686-linux-gnu \
   libsdl2-dev:i386 libgl1-mesa-dev:i386
 ./build_pc.sh
+if [ -d /src/pc/build32 ]; then
+  chown -R "${COZY_BUILD_UID}:${COZY_BUILD_GID}" /src/pc/build32
+fi
 echo ""
 echo "=== Container build finished ==="
 echo "Output: pc/build32/bin/AnimalCrossing (32-bit x86 ELF)"

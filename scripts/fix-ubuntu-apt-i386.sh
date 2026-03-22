@@ -29,7 +29,8 @@ for f in /etc/apt/sources.list.d/*.sources /etc/apt/sources.list; do
         continue
     fi
     echo "Patching: $f"
-    cp -a "$f" "${f}.bak-before-i386-$(date +%Y%m%d%H%M%S)"
+    mkdir -p /var/backups/apt-sources
+    cp -a "$f" "/var/backups/apt-sources/$(basename "$f").before-i386-$(date +%Y%m%d%H%M%S)"
     sed -i \
         -e 's/^Architectures: amd64$/Architectures: amd64 i386/' \
         -e 's/^Architectures: amd64 arm64$/Architectures: amd64 i386 arm64/' \
@@ -46,6 +47,10 @@ if [ "$patched" -eq 0 ]; then
 fi
 
 apt-get update
+echo ""
+echo "If apt warned about ubuntu.sources.bak-before-i386-* under /etc/apt/sources.list.d/, run:"
+echo "  sudo ./scripts/apt-cleanup-sources-list-d.sh"
+echo "(Use --all-bak only if you also want *.list.bak and similar moved.)"
 echo ""
 echo "Next:"
 echo "  apt-cache policy libsdl2-2.0-0:i386"

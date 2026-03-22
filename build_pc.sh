@@ -11,6 +11,7 @@
 #
 # Optional: CMAKE_RECONFIGURE=1 to force CMake reconfigure.
 # Optional: EXTRA_CMAKE_ARGS="..." extra flags passed to cmake (one line).
+# Optional: COZY_PC_GDB_SYMBOLS=1 on Linux adds -g (still -O0 default; see pc/CMakeLists.txt).
 
 set -e
 
@@ -64,7 +65,36 @@ linux_gcc_m32_works() {
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' RETURN
     printf 'int main(void){return 0;}\n' >"$tmp/t.c"
-    gcc -m32 -o "$tmp/t" "$tmp/t.c" 2>/dev/null
+    if gcc -m32 -o "$tmp/t" "$tmp/t.c" 2>/dev/null && [ -x "$tmp/t" ]; then
+        return 0
+    fi
+    return 1
+}
+
+# Docker scripts often configure with -S /src/pc; a copied build32/ then tries mkdir(/src) and fails.
+# Docker also leaves pc/build32 owned by root — plain rm -rf then fails with "Permission denied".
+linux_clean_stale_cmake_cache() {
+    local cached
+    [ -f "$BUILD_DIR/CMakeCache.txt" ] || return 0
+    cached="$(grep -E '^CMAKE_HOME_DIRECTORY:INTERNAL=' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | head -1 | cut -d= -f2-)"
+    cached="${cached//$'\r'/}"
+    [ -n "$cached" ] || return 0
+    if [ "$cached" = "$PC_DIR" ]; then
+        return 0
+    fi
+    echo "=== Removing stale CMake build (configured from: $cached)"
+    echo "    Reconfiguring from: $PC_DIR"
+    rm -rf "$BUILD_DIR" 2>/dev/null || true
+    if [ -e "$BUILD_DIR" ]; then
+        echo ""
+        echo "Error: Could not remove $BUILD_DIR (often root-owned after ./scripts/docker-build-linux-amd64.sh)."
+        echo "Fix with either:"
+        echo "  sudo rm -rf $BUILD_DIR"
+        echo "  sudo chown -R \"\$(id -u):\$(id -g)\" $BUILD_DIR"
+        echo "Then run ./build_pc.sh again."
+        exit 1
+    fi
+    mkdir -p "$BUILD_DIR" "$BIN_DIR/rom" "$BIN_DIR/texture_pack" "$BIN_DIR/save"
 }
 
 linux_cmake_build() {
@@ -92,6 +122,7 @@ linux_cmake_build() {
 }
 
 build_linux() {
+    linux_clean_stale_cmake_cache
     if ! linux_host_can_use_i386_apt_packages; then
         echo "Error: This machine ($(uname -m); dpkg: $(dpkg --print-architecture 2>/dev/null || echo n/a)) cannot use Ubuntu/Debian i386 multiarch dev packages."
         echo ""
@@ -123,9 +154,16 @@ build_linux() {
         CMAKE_ARGS+=(-DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE")
     elif linux_gcc_m32_works; then
         echo "=== Using host gcc/g++ with -m32 (multilib) ==="
+        local cflags=-m32
+        local cxxflags=-m32
+        if [ "${COZY_PC_GDB_SYMBOLS:-}" = 1 ]; then
+            cflags=-m32\ -g
+            cxxflags=-m32\ -g
+            echo "=== COZY_PC_GDB_SYMBOLS=1: adding -g for gdb backtraces into the game binary ==="
+        fi
         CMAKE_ARGS+=(
-            -DCMAKE_C_FLAGS=-m32
-            -DCMAKE_CXX_FLAGS=-m32
+            -DCMAKE_C_FLAGS="$cflags"
+            -DCMAKE_CXX_FLAGS="$cxxflags"
             -DCMAKE_EXE_LINKER_FLAGS=-m32
         )
     else
@@ -133,10 +171,12 @@ build_linux() {
         echo ""
         echo "This project must be built as 32-bit (see pc/CMakeLists.txt)."
         if linux_host_can_use_i386_apt_packages; then
-            echo "On Debian/Ubuntu (x86_64), run:"
-            echo "  ./scripts/install-linux-pc-deps.sh"
+            echo "On Debian/Ubuntu (x86_64), install the toolchain and SDL/GL dev packages:"
+            echo "  sudo ./scripts/install-linux-pc-deps.sh"
             echo ""
-            echo "Or manually:"
+            echo "Then run ./build_pc.sh again."
+            echo ""
+            echo "Manual equivalent:"
             echo "  sudo dpkg --add-architecture i386   # if needed"
             echo "  sudo apt update"
             echo "  sudo apt install gcc-multilib g++-multilib libsdl2-dev:i386 \\"
