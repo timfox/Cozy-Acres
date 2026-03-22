@@ -22,8 +22,16 @@ TOOLCHAIN_FILE="$PC_DIR/cmake/Toolchain-linux32.cmake"
 
 # --- Linux: i386 SDL/Mesa .deb packages exist for amd64 multiarch, not for ARM64 ---
 linux_host_can_use_i386_apt_packages() {
+    if command -v dpkg >/dev/null 2>&1; then
+        local d
+        d="$(dpkg --print-architecture 2>/dev/null || true)"
+        case "$d" in
+            arm64|armhf|armel|riscv64|ppc64el|s390x) return 1 ;;
+        esac
+    fi
     case "$(uname -m)" in
         x86_64|i686|i386) ;;
+        aarch64|armv8*|armv7l|armv6l|riscv64|ppc64le) return 1 ;;
         *) return 1 ;;
     esac
     if command -v dpkg >/dev/null 2>&1; then
