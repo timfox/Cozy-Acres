@@ -56,7 +56,15 @@ Build:
 
 ### Linux (native)
 
-Install dependencies (Debian/Ubuntu example; enable the `i386` architecture if your distro uses multiarch). You can run:
+**x86_64 only for host packages:** `libsdl2-dev:i386` and friends are multiarch packages for **amd64** hosts. On **ARM64** (Apple Silicon, many SBCs), `apt` will not find those packages — the game still targets **32-bit x86**, not ARM. On ARM64 use:
+
+```bash
+./scripts/docker-build-linux-amd64.sh
+```
+
+(requires Docker or Podman with `linux/amd64` support). The binary is **i686**; run it on x86_64 Linux or under `qemu-i386` if you need to execute it on ARM.
+
+On **x86_64** Debian/Ubuntu, install dependencies (enable the `i386` architecture if your distro uses multiarch). You can run:
 
 ```bash
 ./scripts/install-linux-pc-deps.sh
