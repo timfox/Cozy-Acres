@@ -62,10 +62,10 @@ The shipped executable is always **32-bit x86 (i686)**. On **x86_64 Ubuntu** it 
 
 1. Clone the repo and `cd` into it.
 
-2. Install build dependencies (adds `i386` if needed, prefers `gcc -m32`, otherwise installs `i686-linux-gnu-*`):
+2. Install build dependencies (adds `i386` if needed, prefers `gcc -m32`, otherwise installs `i686-linux-gnu-*`). Add `--runtime` to also install the 32-bit SDL/OpenGL libraries required **to run** the game:
 
    ```bash
-   ./scripts/install-linux-pc-deps.sh
+   ./scripts/install-linux-pc-deps.sh --runtime
    ```
 
    Or manually:
@@ -84,15 +84,17 @@ The shipped executable is always **32-bit x86 (i686)**. On **x86_64 Ubuntu** it 
    ./build_pc.sh
    ```
 
-4. Install **runtime** 32-bit libs (needed to launch the binary; dev packages alone are not always enough):
+4. If you used `./scripts/install-linux-pc-deps.sh` **without** `--runtime`, install 32-bit runtime libs:
 
    ```bash
    sudo apt install libsdl2-2.0-0:i386 libgl1:i386
    ```
 
-5. Put your USA disc image under `pc/build32/bin/rom/` (`.iso`, `.gcm`, or `.ciso`).
+5. Optional: install a launcher — see `packaging/linux/README.md`.
 
-6. Run:
+6. Put your USA disc image under `pc/build32/bin/rom/` (`.iso`, `.gcm`, or `.ciso`).
+
+7. Run:
 
    ```bash
    pc/build32/bin/AnimalCrossing --verbose

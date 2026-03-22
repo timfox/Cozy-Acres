@@ -260,7 +260,11 @@ void OSInit(void) {
         }
         if (!arena_memory) {
             /* fallback (may cause seg2k0 issues) */
+#ifdef _WIN32
             fprintf(stderr, "[PC] WARNING: VirtualAlloc at high address failed, "
+#else
+            fprintf(stderr, "[PC] WARNING: mmap at high address failed, "
+#endif
                             "falling back to malloc (seg2k0 may misfire)\n");
             arena_memory = (u8*)malloc(PC_MAIN_MEMORY_SIZE);
         }

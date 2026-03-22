@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Animal Crossing
+GenericName=Animal Crossing (PC port)
+Comment=Unofficial PC port — requires your GAFE01_00 disc image in the rom folder next to this binary
+Icon=application-x-executable
+TryExec=AnimalCrossing
+Terminal=false
+Categories=Game;Simulation;
+StartupWMClass=AnimalCrossing
+# Working directory must be the folder that contains AnimalCrossing, rom/, shaders/, save/, etc.
+Path=REPLACE_WITH_PC_BUILD32_BIN_DIR
+Exec=REPLACE_WITH_PC_BUILD32_BIN_DIR/AnimalCrossing

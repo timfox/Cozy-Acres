@@ -103,7 +103,10 @@ unsigned int pc_crash_get_addr(void) {
 void pc_platform_init(void) {
 #ifdef _WIN32
     SetProcessDPIAware();
-
+#elif defined(__linux__)
+    /* Hybrid graphics: prefer discrete GPU when the user has not set these (like Windows exports). */
+    setenv("DRI_PRIME", "1", 0);
+    setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
