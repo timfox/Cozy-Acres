@@ -23,6 +23,20 @@ esac
 
 sudo dpkg --add-architecture i386 2>/dev/null || true
 sudo apt-get update
+
+if ! apt-cache show libsdl2-2.0-0:i386 >/dev/null 2>&1; then
+    echo ""
+    echo "apt cannot see libsdl2-2.0-0:i386 (no package metadata for i386)."
+    echo "Run: ./scripts/diagnose-apt-i386.sh"
+    echo ""
+    echo "Quick checks:"
+    echo "  dpkg --print-architecture    # must be amd64 for :i386 game libs"
+    echo "  dpkg --print-foreign-architectures   # should list i386"
+    echo "On amd64, Ubuntu main lines often need explicit arch, e.g.:"
+    echo "  deb [arch=amd64,i386] http://archive.ubuntu.com/ubuntu questing main universe"
+    exit 1
+fi
+
 sudo apt-get install -y libsdl2-2.0-0:i386 libgl1:i386
 
 echo "Done. From pc/build32/bin run: ./AnimalCrossing"
