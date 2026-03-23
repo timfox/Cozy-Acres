@@ -9,7 +9,7 @@ PCSettings g_pc_settings = {
     .vsync         = 0,
     .msaa          = 4,
     .preload_textures = 0,
-    .physics_native_60hz = 0,
+    .physics_native_60hz = 1,
 };
 
 static const char* SETTINGS_FILE = "settings.ini";
@@ -105,7 +105,7 @@ void pc_settings_save(void) {
     fprintf(f, "preload_textures = %d\n", g_pc_settings.preload_textures);
     fprintf(f, "\n");
     fprintf(f, "[Gameplay]\n");
-    fprintf(f, "# 0 = original pacing, 1 = full physics step per frame (faster)\n");
+    fprintf(f, "# 1 = native (default), 0 = GameCube half-step pacing\n");
     fprintf(f, "physics_native_60hz = %d\n", g_pc_settings.physics_native_60hz);
     fclose(f);
     printf("[Settings] Saved %s\n", SETTINGS_FILE);
