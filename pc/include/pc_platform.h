@@ -85,9 +85,11 @@ void pc_platform_update_window_size(void);
  * 2 = pillarbox: centered 4:3 with black bars. For inventory UI alignment.
  *
  * m_play.c inserts NOOPTag markers in POLY_OPA to switch between states:
- *   ON (0xAC5701) -> 1, OFF (0xAC5700) -> 2. emu64 reads these during DL processing. */
+ *   STRETCH (0xAC5701) -> 1, STRETCH_OFF (0xAC5700) -> 2, HORPLUS (0xAC5702) -> 0.
+ *   emu64 reads these during DL processing. */
 #define PC_NOOP_WIDESCREEN_STRETCH     0xAC5701u
 #define PC_NOOP_WIDESCREEN_STRETCH_OFF 0xAC5700u
+#define PC_NOOP_WIDESCREEN_HORPLUS     0xAC5702u
 extern int g_pc_widescreen_stretch;
 
 /* --- Functions --- */

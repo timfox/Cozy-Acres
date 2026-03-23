@@ -708,6 +708,10 @@ static int makeBumpTexture(GAME_PLAY* play, GRAPH* graph1, GRAPH* graph2) {
 
         fbdemo_fade_draw(&play->color_fade, &polydisp);
         fade_rgba8888_draw(&polydisp, play->fade_color_value.rgba8888);
+#ifdef TARGET_PC
+        /* Wipes/fades used stretch mode; restore hor+ before actors and Camera2_draw. */
+        gDPNoOpTag(polydisp++, PC_NOOP_WIDESCREEN_HORPLUS);
+#endif
 
         gSPEndDisplayList(polydisp++);
 
