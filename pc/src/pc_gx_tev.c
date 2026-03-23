@@ -1,6 +1,38 @@
 /* pc_gx_tev.c - TEV shader: GLSL program loading and uniform upload */
 #include "pc_gx_internal.h"
 
+#if defined(__linux__)
+#include <unistd.h>
+#endif
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
+/* Directory containing the running executable (no trailing slash), or empty if unknown. */
+static void pc_exe_dir(char* dir, size_t dir_sz) {
+    dir[0] = '\0';
+    if (dir_sz < 2)
+        return;
+#if defined(_WIN32)
+    if (GetModuleFileNameA(NULL, dir, (DWORD)dir_sz) == 0)
+        return;
+#else
+    ssize_t n = readlink("/proc/self/exe", dir, dir_sz - 1);
+    if (n < 0 || (size_t)n >= dir_sz - 1)
+        return;
+    dir[n] = '\0';
+#endif
+    char* slash = strrchr(dir, '/');
+#if defined(_WIN32)
+    if (!slash)
+        slash = strrchr(dir, '\\');
+#endif
+    if (slash)
+        *slash = '\0';
+    else
+        dir[0] = '\0';
+}
+
 /* --- file I/O --- */
 
 static char* load_text_file(const char* path) {
@@ -28,12 +60,26 @@ static char* load_text_file(const char* path) {
 
 static char* load_shader(const char* filename) {
     char path[512];
+    char base[512];
+    char* src;
+
+    pc_exe_dir(base, sizeof(base));
+    if (base[0] != '\0') {
+        snprintf(path, sizeof(path), "%s/shaders/%s", base, filename);
+        src = load_text_file(path);
+        if (src) {
+            printf("[PC/TEV] Loaded shader: %s\n", path);
+            return src;
+        }
+    }
+
     snprintf(path, sizeof(path), "shaders/%s", filename);
-    char* src = load_text_file(path);
+    src = load_text_file(path);
     if (src) {
         printf("[PC/TEV] Loaded shader: %s\n", path);
     } else {
-        fprintf(stderr, "FATAL: Could not load shader: %s\n", path);
+        fprintf(stderr, "FATAL: Could not load shader %s (tried next to executable, then cwd shaders/)\n",
+                filename);
     }
     return src;
 }
@@ -96,9 +142,9 @@ void pc_gx_tev_init(void) {
     char* fs_src = load_shader("default.frag");
 
     if (!vs_src || !fs_src) {
-        fprintf(stderr, "FATAL: Shader files missing from shaders/ directory.\n"
-                        "Expected: shaders/default.vert and shaders/default.frag\n"
-                        "Make sure shader files are next to the executable.\n");
+        fprintf(stderr, "FATAL: Shader files missing.\n"
+                        "Expected: <exe-dir>/shaders/default.vert and default.frag (or cwd shaders/).\n"
+                        "Re-run ./build_pc.sh so CMake copies them into pc/build32/bin/shaders/.\n");
         free(vs_src);
         free(fs_src);
         exit(1);
