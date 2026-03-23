@@ -11,13 +11,8 @@
 # system i386 LD path before /opt/amdgpu. We do NOT set SDL_VIDEO_X11_FORCE_EGL:
 # forced EGL on i386 has crashed some setups; classic GLX is fine once AMDGPU i386 DRI is gone.
 set -euo pipefail
-repo="$(cd "$(dirname "$0")/.." && pwd)"
-exe="$repo/pc/build32/bin/AnimalCrossing"
-if [ ! -x "$exe" ]; then
-    echo "Missing or non-executable: $exe" >&2
-    echo "Build with ./build_pc.sh. If pc/build32 is root-owned from Docker: sudo rm -rf pc/build32 && ./build_pc.sh" >&2
-    exit 1
-fi
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+exe="$("$script_dir/pc-linux-resolve-exe.sh")"
 export SDL_VIDEODRIVER=x11
 unset SDL_VIDEO_X11_FORCE_EGL 2>/dev/null || true
 export DRI_PRIME=0

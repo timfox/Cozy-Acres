@@ -6,8 +6,9 @@
 # No root required.
 set -euo pipefail
 
-repo="$(cd "$(dirname "$0")/.." && pwd)"
-exe="$repo/pc/build32/bin/AnimalCrossing"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+repo="$(cd "$script_dir/.." && pwd)"
+exe="$("$script_dir/pc-linux-resolve-exe.sh")"
 
 echo "=== OS ==="
 uname -a 2>/dev/null || true
@@ -65,3 +66,6 @@ echo "=== gdb one-liner (for your notes) ==="
 echo "  ./scripts/gdb-pc-linux.sh --verbose"
 echo "  (gdb) run"
 echo "  (gdb) bt"
+echo ""
+echo "=== Repro backtrace in Ubuntu 24.04 container (Mesa/i386 stack) ==="
+echo "  ./scripts/docker-gdb-pc-ubuntu2404.sh --verbose"

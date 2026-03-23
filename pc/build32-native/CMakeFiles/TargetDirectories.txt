@@ -1,0 +1,8 @@
+/home/tim/cozyacres/pc/build32-native/CMakeFiles/glad.dir
+/home/tim/cozyacres/pc/build32-native/CMakeFiles/ac_pc.dir
+/home/tim/cozyacres/pc/build32-native/CMakeFiles/edit_cache.dir
+/home/tim/cozyacres/pc/build32-native/CMakeFiles/rebuild_cache.dir
+/home/tim/cozyacres/pc/build32-native/CMakeFiles/list_install_components.dir
+/home/tim/cozyacres/pc/build32-native/CMakeFiles/install.dir
+/home/tim/cozyacres/pc/build32-native/CMakeFiles/install/local.dir
+/home/tim/cozyacres/pc/build32-native/CMakeFiles/install/strip.dir
