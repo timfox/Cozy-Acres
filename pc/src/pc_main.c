@@ -377,6 +377,37 @@ int pc_platform_poll_events(void) {
 extern void ac_entry(void);
 extern int boot_main(int argc, const char** argv);
 
+/* Match desktop launchers that set Path= to the install folder: assets/, rom/, orig/, settings.ini
+ * are all resolved relative to cwd; running from a terminal elsewhere breaks those paths. */
+static void pc_chdir_to_exe_dir(void) {
+#ifdef _WIN32
+    char path[MAX_PATH];
+    DWORD n = GetModuleFileNameA(NULL, path, sizeof(path));
+    if (n == 0 || n >= sizeof(path))
+        return;
+    char* slash = strrchr(path, '\\');
+    if (!slash)
+        slash = strrchr(path, '/');
+    if (slash) {
+        *slash = '\0';
+        if (!SetCurrentDirectoryA(path) && g_pc_verbose)
+            fprintf(stderr, "[PC] SetCurrentDirectoryA failed: %s\n", path);
+    }
+#elif defined(__linux__)
+    char path[512];
+    ssize_t n = readlink("/proc/self/exe", path, sizeof(path) - 1);
+    if (n < 0 || (size_t)n >= sizeof(path) - 1)
+        return;
+    path[n] = '\0';
+    char* slash = strrchr(path, '/');
+    if (slash) {
+        *slash = '\0';
+        if (chdir(path) != 0 && g_pc_verbose)
+            fprintf(stderr, "[PC] chdir to exe dir failed: %s\n", path);
+    }
+#endif
+}
+
 int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -416,6 +447,8 @@ int main(int argc, char* argv[]) {
         setvbuf(stdout, NULL, _IONBF, 0);
         setvbuf(stderr, NULL, _IONBF, 0);
     }
+
+    pc_chdir_to_exe_dir();
 
     /* exe image range for seg2k0 — BSS can overlap N64 segment addresses */
 #ifdef _WIN32
