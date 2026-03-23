@@ -240,10 +240,17 @@ static void texpack_insert(xxh_u64 data_hash, xxh_u64 tlut_hash, xxh_u32 fmt,
             g_texpack_map[idx].filepath[259] = '\0';
             g_texpack_map[idx].occupied = 1;
             g_texpack_count++;
-            break;
+            return;
         }
     }
-
+    {
+        static int warned;
+        if (!warned) {
+            printf("[TexturePack] Pack hash table full (%d slots); further DDS entries are ignored\n",
+                   TEXPACK_MAP_SIZE);
+            warned = 1;
+        }
+    }
 }
 
 static TexPackEntry* texpack_find(xxh_u64 data_hash, xxh_u64 tlut_hash, xxh_u32 fmt,
@@ -279,7 +286,15 @@ static void texpack_insert_wildcard(xxh_u64 data_hash, xxh_u32 fmt,
             g_texpack_wc_map[idx].filepath[259] = '\0';
             g_texpack_wc_map[idx].occupied = 1;
             g_texpack_count++;
-            break;
+            return;
+        }
+    }
+    {
+        static int warned;
+        if (!warned) {
+            printf("[TexturePack] Wildcard hash table full (%d slots); further wildcard DDS ignored\n",
+                   TEXPACK_WC_SIZE);
+            warned = 1;
         }
     }
 }
@@ -329,6 +344,8 @@ static int parse_texpack_filename(const char* name, xxh_u32* w, xxh_u32* h,
     char* end_h;
     unsigned long ph = strtoul(end_w + 1, &end_h, 10);
     if (*end_h != '_') return 0;
+    if (pw == 0 || ph == 0 || pw > 8192UL || ph > 8192UL)
+        return 0;
     *w = (xxh_u32)pw;
     *h = (xxh_u32)ph;
     p = end_h + 1;

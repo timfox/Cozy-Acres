@@ -377,32 +377,15 @@ extern int boot_main(int argc, const char** argv);
  * binary lives under pc/build32/bin. Packaged installs colocate disc + exe, so disc init often
  * succeeds on the first try without chdir. */
 static void pc_chdir_to_exe_dir(void) {
-#ifdef _WIN32
-    char path[MAX_PATH];
-    DWORD n = GetModuleFileNameA(NULL, path, sizeof(path));
-    if (n == 0 || n >= sizeof(path))
+    if (pc_chdir_to_executable_directory())
         return;
-    char* slash = strrchr(path, '\\');
-    if (!slash)
-        slash = strrchr(path, '/');
-    if (slash) {
-        *slash = '\0';
-        if (!SetCurrentDirectoryA(path) && g_pc_verbose)
-            fprintf(stderr, "[PC] SetCurrentDirectoryA failed: %s\n", path);
+    if (g_pc_verbose) {
+        char dir[512];
+        if (pc_get_executable_directory(dir, sizeof(dir)))
+            fprintf(stderr, "[PC] chdir to executable directory failed: %s\n", dir);
+        else
+            fprintf(stderr, "[PC] Could not resolve executable path for disc fallback chdir\n");
     }
-#elif defined(__linux__)
-    char path[512];
-    ssize_t n = readlink("/proc/self/exe", path, sizeof(path) - 1);
-    if (n < 0 || (size_t)n >= sizeof(path) - 1)
-        return;
-    path[n] = '\0';
-    char* slash = strrchr(path, '/');
-    if (slash) {
-        *slash = '\0';
-        if (chdir(path) != 0 && g_pc_verbose)
-            fprintf(stderr, "[PC] chdir to exe dir failed: %s\n", path);
-    }
-#endif
 }
 
 static int pc_probe_preextracted_rom(void) {

@@ -68,8 +68,9 @@ void VIWaitForRetrace(void) {
         double pace_ms = (double)(t_after_pace - t_before_pace) * 1000.0 / (double)perf_freq;
         double work_ms = (double)(vi_enter - frame_start_time) * 1000.0 / (double)perf_freq;
         int audio_fill = pc_audio_get_buffer_fill();
-        printf("[STUTTER] frame %u: total=%.1fms work=%.1fms swap=%.1fms pace=%.1fms audio_fill=%d\n",
-               pc_frame_counter, frame_ms, work_ms - swap_ms - pace_ms, swap_ms, pace_ms, audio_fill);
+        printf("[STUTTER] frame %lu: total=%.1fms work=%.1fms swap=%.1fms pace=%.1fms audio_fill=%d\n",
+               (unsigned long)pc_frame_counter, frame_ms, work_ms - swap_ms - pace_ms, swap_ms, pace_ms,
+               audio_fill);
     }
 
     {
