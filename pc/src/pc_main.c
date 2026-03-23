@@ -9,6 +9,7 @@
 
 #if defined(__linux__)
 #include <dlfcn.h>
+#include <unistd.h>
 #endif
 
 /* prefer discrete GPU on laptops */
@@ -138,12 +139,40 @@ static void pc_linux_preload_llvm_rtld_global(void) {
             last_err ? last_err : "(none)");
     fflush(stderr);
 }
+
+/* If 32-bit proprietary NVIDIA GLX is installed, prefer it over Mesa so we never load
+ * Mesa's i386 libLLVM (known to SIGSEGV during static init on some Ubuntu 25.x setups).
+ * libglvnd reads __GLX_VENDOR_LIBRARY_NAME. User can set the var themselves; we only
+ * fill it when unset. Opt out: PC_SKIP_NVIDIA_GLX_VENDOR=1 */
+static void pc_linux_try_nvidia_glx_vendor(void) {
+    if (sizeof(void*) != 4)
+        return;
+    if (getenv("__GLX_VENDOR_LIBRARY_NAME") != NULL)
+        return;
+    if (getenv("PC_SKIP_NVIDIA_GLX_VENDOR") != NULL)
+        return;
+    static const char* const glx_paths[] = {
+        "/usr/lib/i386-linux-gnu/libGLX_nvidia.so.0",
+        "/usr/lib32/libGLX_nvidia.so.0",
+        NULL,
+    };
+    for (int i = 0; glx_paths[i] != NULL; i++) {
+        if (access(glx_paths[i], R_OK) == 0) {
+            setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", 1);
+            if (g_pc_verbose)
+                fprintf(stderr, "[PC] Using NVIDIA GLX vendor (found %s); avoids Mesa i386 LLVM path\n",
+                        glx_paths[i]);
+            return;
+        }
+    }
+}
 #endif
 
 void pc_platform_init(void) {
 #ifdef _WIN32
     SetProcessDPIAware();
 #elif defined(__linux__)
+    pc_linux_try_nvidia_glx_vendor();
     /* Hybrid graphics: prefer discrete GPU (like Windows exports). Skip on 32-bit builds:
      * DRI_PRIME often pulls AMDGPU's i386 GLX/LLVM stack from /opt/amdgpu and segfaults
      * on glXChooseVisual; 64-bit is unaffected. Set PC_USE_DISCRETE_GPU=1 to force these

@@ -96,11 +96,20 @@ The shipped executable is always **32-bit x86 (i686)**. On **x86_64 Ubuntu** it 
 
 6. Put your USA disc image under `pc/build32/bin/rom/` (`.iso`, `.gcm`, or `.ciso`).
 
-7. Run:
+7. Run from the **repo root** (sets X11 + sane `LD_LIBRARY_PATH`, and uses the correct working directory for `rom/`):
 
    ```bash
-   pc/build32/bin/AnimalCrossing --verbose
+   ./scripts/play-native-linux.sh --verbose
    ```
+
+   Or from the game directory:
+
+   ```bash
+   cd pc/build32/bin
+   ./AnimalCrossing --verbose
+   ```
+
+   Current builds use a **non-PIE** i386 link by default, which fixes common **Mesa + `libLLVM`** crashes on Ubuntu **25.10** and similar (AMD/Intel). If you still see a segfault right after keybindings, see **Segmentation fault** below.
 
 If CMake cannot find SDL2, ensure `PKG_CONFIG_LIBDIR` points at the directory that contains `sdl2.pc` for i386 (often `/usr/lib/i386-linux-gnu/pkgconfig`); see `pc/cmake/Toolchain-linux32.cmake`.
 
@@ -134,6 +143,7 @@ SDL2 defines **`SDL_HINT_VIDEODRIVER`** (no underscore between **`VIDEO`** and *
 #### Segmentation fault immediately on launch
 
 - From **`pc/build32/bin`**, run **`./AnimalCrossing --verbose`** and note the last line printed before the crash.
+- **Linux i386 (rebuild with current CMake):** the binary is linked **non-PIE** (`-fno-pie` / `-no-pie`) by default, which avoids many **PIE + `libLLVM` i386** crashes during **`glXChooseVisual`** (relevant for **AMD/Intel Mesa** as well as NVIDIA). If **`libGLX_nvidia.so.0`** exists under **`/usr/lib/i386-linux-gnu/`**, the game sets **`__GLX_VENDOR_LIBRARY_NAME=nvidia`** so **Mesa never loads** — on **AMD-only** machines that file is absent and this branch is skipped; use **`PC_SKIP_NVIDIA_GLX_VENDOR=1`** if you need to force Mesa on a hybrid box. To keep a PIE executable instead: configure with **`-DPC_LINUX_FORCE_PIE=ON`**.
 - **Linux i686 (current `pc_main.c`):** only **`SDL_INIT_VIDEO`** runs until after **`gladLoadGL`**; then audio/timer/gamecontroller subsystems start. **Optional** LLVM preload: set **`PC_LLVM_PRELOAD=1`** to **`dlopen` `libLLVM`** with **`RTLD_GLOBAL`** before **`SDL_Init`** (can help on some Mesa setups; on others the **first** **`dlopen` of `libLLVM` SIGSEGVs** in LLVM static init — then leave it unset). **Rebuild** with **`./build_pc.sh`**. To try EGL on X11 instead of GLX: **`PC_X11_EGL=1`** or **`./scripts/run-pc-linux-x11-egl.sh`** (still loads LLVM via Mesa on many drivers). **Container workaround:** **`./scripts/docker-run-pc-ubuntu2404.sh`** builds and runs with **24.04**’s i386 GL stack.
 - If **`gdb`** still shows **`libLLVM`** and **`llvm::ManagedStaticBase::RegisterManagedStatic`** while **`glXChooseVisual`** (GLX) or **`eglGetProcAddress`** (EGL) is on the stack, the fault is still in **Mesa’s i386 stack** (not game logic). A typical stack ends with **`dlopen` → `libGLX.so` → `glXChooseVisual` → `libSDL2` → `pc_platform_init` → `main`**. Some Ubuntu versions (e.g. **25.10**) may not publish **`mesa-utils:i386`** / **`glxgears:i386`**; rely on **`gdb`** on **`AnimalCrossing`** instead. For a distro bug report, capture: **`dpkg-query -W libllvm20 libgl1-mesa-dri libglx-mesa0 mesa-libgallium`** (exact names vary) and **`apt policy libllvm20:i386 libgl1-mesa-dri:i386`**. Further mitigations: **different Mesa/LLVM combo** (another Ubuntu release, container, or older **`libllvm*t:i386`** / **`libgl1-mesa-dri:i386`**), or a machine where **i386 GL** is known good.
 - If **`gdb`** shows the fault in **`/opt/amdgpu/.../libLLVM.so.*amdgpu`** while **`glXChooseVisual`** / **`libGLX`** is **`dlopen`**-ing the driver, the **AMDGPU i386** stack is being loaded (often broken vs Ubuntu 25.10 + Mesa). **`LIBGL_ALWAYS_SOFTWARE=1` alone does not fix that** because GLX still pulls AMDGPU first.

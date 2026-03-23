@@ -369,6 +369,18 @@ else()
     target_link_libraries(ac_pc OpenGL::GL dl pthread m)
 endif()
 
+# Ubuntu 25.x / i386 Mesa: glXChooseVisual loads libLLVM; some stacks SIGSEGV in LLVM
+# static init (ManagedStatic) when the game is a PIE (ET_DYN). Non-PIE ET_EXEC avoids
+# that class of loader/TLS interaction for many setups. Opt out: -DPC_LINUX_FORCE_PIE=ON
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+    option(PC_LINUX_FORCE_PIE "Keep default PIE executable on Linux i386 (disables -no-pie workaround)" OFF)
+    if(NOT PC_LINUX_FORCE_PIE)
+        target_compile_options(ac_pc PRIVATE -fno-pie)
+        target_link_options(ac_pc PRIVATE -no-pie)
+        message(STATUS "Linux i386: -fno-pie/-no-pie enabled (Mesa/libLLVM crash workaround; override with -DPC_LINUX_FORCE_PIE=ON)")
+    endif()
+endif()
+
 set_target_properties(ac_pc PROPERTIES
     OUTPUT_NAME "AnimalCrossing"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"

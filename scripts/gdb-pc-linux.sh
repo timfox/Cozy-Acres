@@ -4,6 +4,7 @@
 set -euo pipefail
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 exe="$("$script_dir/pc-linux-resolve-exe.sh")"
+cd "$(dirname "$exe")"
 echo "Debugging: $exe" >&2
 echo "Tip: use this path or this script — not gdb /pc/build32/... (leading /pc is wrong)." >&2
 echo "After (gdb) starts: run  — after crash: bt  — quit with q" >&2

@@ -13,6 +13,7 @@
 set -euo pipefail
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 exe="$("$script_dir/pc-linux-resolve-exe.sh")"
+cd "$(dirname "$exe")"
 export SDL_VIDEODRIVER=x11
 unset SDL_VIDEO_X11_FORCE_EGL 2>/dev/null || true
 export DRI_PRIME=0
