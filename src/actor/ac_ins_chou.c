@@ -1,5 +1,6 @@
 #include "ac_ins_chou.h"
 
+#include "m_actor.h"
 #include "m_field_info.h"
 #include "m_name_table.h"
 #include "m_common_data.h"
@@ -91,7 +92,7 @@ static void aICH_jump_ctrl(aINS_INSECT_ACTOR* insect, f32 base) {
         insect->tools_actor.actor_class.position_speed.y = 2.0f + fqrand();
     }
     chase_f(&insect->tools_actor.actor_class.position_speed.y, insect->tools_actor.actor_class.max_velocity_y,
-            0.5f * insect->tools_actor.actor_class.gravity);
+            mActor_GetPhysicsDtScale() * insect->tools_actor.actor_class.gravity);
 }
 
 static int aICH_flower_search_sub(aINS_INSECT_ACTOR* insect, int type) {

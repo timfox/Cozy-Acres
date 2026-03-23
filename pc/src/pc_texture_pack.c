@@ -230,18 +230,26 @@ static void texpack_insert(xxh_u64 data_hash, xxh_u64 tlut_hash, xxh_u32 fmt,
     xxh_u32 slot = texpack_slot(data_hash, tlut_hash, fmt, w, h);
     for (int i = 0; i < TEXPACK_MAP_SIZE; i++) {
         xxh_u32 idx = (slot + i) & TEXPACK_MAP_MASK;
-        if (!g_texpack_map[idx].occupied) {
-            g_texpack_map[idx].data_hash = data_hash;
-            g_texpack_map[idx].tlut_hash = tlut_hash;
-            g_texpack_map[idx].gc_fmt = fmt;
-            g_texpack_map[idx].orig_w = w;
-            g_texpack_map[idx].orig_h = h;
-            strncpy(g_texpack_map[idx].filepath, filepath, 259);
-            g_texpack_map[idx].filepath[259] = '\0';
-            g_texpack_map[idx].occupied = 1;
-            g_texpack_count++;
-            return;
+        if (g_texpack_map[idx].occupied) {
+            if (g_texpack_map[idx].data_hash == data_hash && g_texpack_map[idx].tlut_hash == tlut_hash &&
+                g_texpack_map[idx].gc_fmt == fmt && g_texpack_map[idx].orig_w == w &&
+                g_texpack_map[idx].orig_h == h) {
+                strncpy(g_texpack_map[idx].filepath, filepath, 259);
+                g_texpack_map[idx].filepath[259] = '\0';
+                return;
+            }
+            continue;
         }
+        g_texpack_map[idx].data_hash = data_hash;
+        g_texpack_map[idx].tlut_hash = tlut_hash;
+        g_texpack_map[idx].gc_fmt = fmt;
+        g_texpack_map[idx].orig_w = w;
+        g_texpack_map[idx].orig_h = h;
+        strncpy(g_texpack_map[idx].filepath, filepath, 259);
+        g_texpack_map[idx].filepath[259] = '\0';
+        g_texpack_map[idx].occupied = 1;
+        g_texpack_count++;
+        return;
     }
     {
         static int warned;
@@ -277,17 +285,24 @@ static void texpack_insert_wildcard(xxh_u64 data_hash, xxh_u32 fmt,
     xxh_u32 slot = texpack_wc_slot(data_hash, fmt, w, h);
     for (int i = 0; i < TEXPACK_WC_SIZE; i++) {
         xxh_u32 idx = (slot + i) & TEXPACK_WC_MASK;
-        if (!g_texpack_wc_map[idx].occupied) {
-            g_texpack_wc_map[idx].data_hash = data_hash;
-            g_texpack_wc_map[idx].gc_fmt = fmt;
-            g_texpack_wc_map[idx].orig_w = w;
-            g_texpack_wc_map[idx].orig_h = h;
-            strncpy(g_texpack_wc_map[idx].filepath, filepath, 259);
-            g_texpack_wc_map[idx].filepath[259] = '\0';
-            g_texpack_wc_map[idx].occupied = 1;
-            g_texpack_count++;
-            return;
+        if (g_texpack_wc_map[idx].occupied) {
+            if (g_texpack_wc_map[idx].data_hash == data_hash && g_texpack_wc_map[idx].gc_fmt == fmt &&
+                g_texpack_wc_map[idx].orig_w == w && g_texpack_wc_map[idx].orig_h == h) {
+                strncpy(g_texpack_wc_map[idx].filepath, filepath, 259);
+                g_texpack_wc_map[idx].filepath[259] = '\0';
+                return;
+            }
+            continue;
         }
+        g_texpack_wc_map[idx].data_hash = data_hash;
+        g_texpack_wc_map[idx].gc_fmt = fmt;
+        g_texpack_wc_map[idx].orig_w = w;
+        g_texpack_wc_map[idx].orig_h = h;
+        strncpy(g_texpack_wc_map[idx].filepath, filepath, 259);
+        g_texpack_wc_map[idx].filepath[259] = '\0';
+        g_texpack_wc_map[idx].occupied = 1;
+        g_texpack_count++;
+        return;
     }
     {
         static int warned;
@@ -328,6 +343,12 @@ static int parse_hex64(const char* s, xxh_u64* out) {
         else if (c >= 'A' && c <= 'F')  nibble = 10 + c - 'A';
         else return 0;
         *out = (*out << 4) | nibble;
+    }
+    /* Exactly 16 hex digits; reject longer runs so mis-parsed names do not hash wrong data */
+    {
+        char t = s[16];
+        if ((t >= '0' && t <= '9') || (t >= 'a' && t <= 'f') || (t >= 'A' && t <= 'F'))
+            return 0;
     }
     return 1;
 }
@@ -379,6 +400,9 @@ static int parse_texpack_filename(const char* name, xxh_u32* w, xxh_u32* h,
     } else {
         return 0;
     }
+
+    if (*fmt > 255u)
+        return 0;
 
     return 1;
 }

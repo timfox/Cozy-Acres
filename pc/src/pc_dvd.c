@@ -133,9 +133,22 @@ BOOL DVDFastOpen(s32 entrynum, void* fileInfo) {
             return FALSE;
         }
 
-        fseek(fp, 0, SEEK_END);
-        len = (u32)ftell(fp);
-        fseek(fp, 0, SEEK_SET);
+        if (fseek(fp, 0, SEEK_END) != 0) {
+            fclose(fp);
+            return FALSE;
+        }
+        {
+            long lenl = ftell(fp);
+            if (lenl < 0) {
+                fclose(fp);
+                return FALSE;
+            }
+            len = (u32)lenl;
+        }
+        if (fseek(fp, 0, SEEK_SET) != 0) {
+            fclose(fp);
+            return FALSE;
+        }
 
         memset(fileInfo, 0, 0x3C);
         *dvd_fi_fp(fileInfo) = fp;
@@ -177,8 +190,12 @@ s32 DVDReadPrio(void* fileInfo, void* buf, s32 length, s32 offset, s32 prio) {
         return -1;
     }
 
-    fseek(fp, offset, SEEK_SET);
-    return (s32)fread(buf, 1, length, fp);
+    if (fseek(fp, offset, SEEK_SET) != 0)
+        return -1;
+    {
+        size_t n = fread(buf, 1, (size_t)length, fp);
+        return (s32)n;
+    }
 }
 
 s32 DVDRead(void* fileInfo, void* buf, s32 length, s32 offset) {

@@ -19,7 +19,9 @@
 #include "m_malloc.h"
 #include "m_common_data.h"
 #ifdef TARGET_PC
+#include <stdio.h>
 #include "pc_platform.h"
+#include "pc_settings.h"
 #endif
 
 #ifdef MUST_MATCH
@@ -30,6 +32,14 @@ extern void __declspec(section "forcestrip") projection_pos_set(GAME_PLAY* play,
     *proj_w = *proj_w < 1.0f ? 1.0f : 1.0f / *proj_w;
 }
 #endif
+
+f32 mActor_GetPhysicsDtScale(void) {
+#ifdef TARGET_PC
+    return g_pc_settings.physics_native_60hz ? 1.0f : 0.5f;
+#else
+    return 0.5f;
+#endif
+}
 
 extern void Actor_world_to_eye(ACTOR* actor, f32 eye_height) {
     /* Update position */
@@ -44,20 +54,22 @@ extern void Actor_world_to_eye(ACTOR* actor, f32 eye_height) {
 }
 
 extern void Actor_position_move(ACTOR* actor) {
+    f32 dt = mActor_GetPhysicsDtScale();
+
     (*((GAME_PLAY*)gamePT)->kankyo.nature.proc)(actor);
 
-    /* divide by 2 because of 30fps -> 60fps? */
-    actor->world.position.x += 0.5f * actor->position_speed.x + actor->status_data.collision_vec.x;
-    actor->world.position.y += 0.5f * actor->position_speed.y + actor->status_data.collision_vec.y;
-    actor->world.position.z += 0.5f * actor->position_speed.z + actor->status_data.collision_vec.z;
+    actor->world.position.x += dt * actor->position_speed.x + actor->status_data.collision_vec.x;
+    actor->world.position.y += dt * actor->position_speed.y + actor->status_data.collision_vec.y;
+    actor->world.position.z += dt * actor->position_speed.z + actor->status_data.collision_vec.z;
 }
 
 extern void Actor_position_speed_set(ACTOR* actor) {
+    f32 dt = mActor_GetPhysicsDtScale();
+
     actor->position_speed.x = actor->speed * sin_s(actor->world.angle.y);
     actor->position_speed.z = actor->speed * cos_s(actor->world.angle.y);
 
-    /* divide by 2 because of 30fps -> 60fps? */
-    chase_f(&actor->position_speed.y, actor->max_velocity_y, 0.5f * actor->gravity);
+    chase_f(&actor->position_speed.y, actor->max_velocity_y, dt * actor->gravity);
 }
 
 extern void Actor_position_moveF(ACTOR* actor) {
@@ -729,6 +741,8 @@ extern ACTOR* Actor_info_make_actor(Actor_info* actor_info, GAME* game, s16 prof
 #ifdef TARGET_PC
     /* Skip actors with NULL or stubbed profiles (stub functions masquerading as struct data) */
     if (profile == NULL || profile->class_size == 0 || profile->class_size > 0x100000) {
+        fprintf(stderr, "[Actor] rejected profile %d: profile=%p class_size=%u\n", (int)profile_no, (void*)profile,
+                profile != NULL ? (unsigned int)profile->class_size : 0u);
         return NULL;
     }
 #endif

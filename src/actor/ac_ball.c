@@ -1,4 +1,5 @@
 #include "ac_ball.h"
+#include "m_actor.h"
 #include "m_actor_shadow.h"
 #include "m_common_data.h"
 #include "m_debug.h"
@@ -632,7 +633,7 @@ static void aBALL_process_ground_water(ACTOR* actor, GAME* game) {
     if (currentUT == 11 || currentUT == 22) {
         pos = &ball->bgpos;
 
-        actor->world.position.y += (0.5f * pos->y);
+        actor->world.position.y += mActor_GetPhysicsDtScale() * pos->y;
 
         if (currentUT == 22) {
             height = ABS(pos->y);

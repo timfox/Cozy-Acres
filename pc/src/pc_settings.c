@@ -9,6 +9,7 @@ PCSettings g_pc_settings = {
     .vsync         = 0,
     .msaa          = 4,
     .preload_textures = 0,
+    .physics_native_60hz = 0,
 };
 
 static const char* SETTINGS_FILE = "settings.ini";
@@ -30,7 +31,12 @@ static const char* DEFAULT_SETTINGS =
     "\n"
     "[Enhancements]\n"
     "# Preload HD textures at startup: 0 = off (load on demand), 1 = preload, 2 = preload + cache file (fastest)\n"
-    "preload_textures = 0\n";
+    "preload_textures = 0\n"
+    "\n"
+    "[Gameplay]\n"
+    "# 0 = original pacing (half physics step per frame at ~60Hz)\n"
+    "# 1 = full physics step every frame (snappier; ~2x movement vs 0)\n"
+    "physics_native_60hz = 0\n";
 
 static const char* skip_ws(const char* s) {
     while (*s == ' ' || *s == '\t') s++;
@@ -61,6 +67,8 @@ static void apply_setting(const char* key, const char* value) {
             g_pc_settings.msaa = val;
     } else if (strcmp(key, "preload_textures") == 0) {
         if (val >= 0 && val <= 2) g_pc_settings.preload_textures = val;
+    } else if (strcmp(key, "physics_native_60hz") == 0) {
+        if (val == 0 || val == 1) g_pc_settings.physics_native_60hz = val;
     }
 }
 
@@ -95,6 +103,10 @@ void pc_settings_save(void) {
     fprintf(f, "[Enhancements]\n");
     fprintf(f, "# Preload HD textures at startup: 0 = off (load on demand), 1 = preload, 2 = preload + cache file (fastest)\n");
     fprintf(f, "preload_textures = %d\n", g_pc_settings.preload_textures);
+    fprintf(f, "\n");
+    fprintf(f, "[Gameplay]\n");
+    fprintf(f, "# 0 = original pacing, 1 = full physics step per frame (faster)\n");
+    fprintf(f, "physics_native_60hz = %d\n", g_pc_settings.physics_native_60hz);
     fclose(f);
     printf("[Settings] Saved %s\n", SETTINGS_FILE);
 }
@@ -148,8 +160,8 @@ void pc_settings_load(void) {
         }
     }
     fclose(f);
-    printf("[Settings] Loaded %s: %dx%d fullscreen=%d vsync=%d msaa=%d preload_textures=%d\n",
+    printf("[Settings] Loaded %s: %dx%d fullscreen=%d vsync=%d msaa=%d preload_textures=%d physics_native_60hz=%d\n",
            SETTINGS_FILE, g_pc_settings.window_width, g_pc_settings.window_height,
            g_pc_settings.fullscreen, g_pc_settings.vsync, g_pc_settings.msaa,
-           g_pc_settings.preload_textures);
+           g_pc_settings.preload_textures, g_pc_settings.physics_native_60hz);
 }

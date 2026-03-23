@@ -1,5 +1,6 @@
 #include "m_train_control.h"
 
+#include "m_actor.h"
 #include "m_common_data.h"
 #include "m_play.h"
 #include "m_player.h"
@@ -401,7 +402,7 @@ static void mTRC_trainControl(GAME_PLAY* play, int state) {
             Common_Set(train_flag, TRUE);
         }
 
-        pos.x += 0.5f * speed;
+        pos.x += mActor_GetPhysicsDtScale() * speed;
         mTRC_KishaStatusLevel(play, speed, pos);
     }
 

@@ -622,6 +622,9 @@ extern int cKF_SkeletonInfo_R_play(cKF_SkeletonInfo_R_c* keyframe) {
         keyframe->animation->flag_table == NULL || keyframe->animation->fixed_table == NULL) {
         return cKF_STATE_STOPPED;
     }
+    if (!F32_IS_ZERO(keyframe->morph_counter) && keyframe->target_joint == NULL) {
+        return cKF_STATE_STOPPED;
+    }
 #endif
 
     // Choose between current and target joint based on morph counter

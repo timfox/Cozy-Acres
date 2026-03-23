@@ -20,6 +20,9 @@ typedef void (*mActor_proc)(ACTOR*, GAME*);
 
 #define mAc_MAX_ACTORS 200
 
+/* Half-step at ~60Hz matches original 30Hz sim; PC can set physics_native_60hz=1 in settings.ini. */
+extern f32 mActor_GetPhysicsDtScale(void);
+
 #define ACTOR_STATE_NONE 0
 #define ACTOR_STATE_0 (1 << 0)
 #define ACTOR_STATE_2 (1 << 2)
