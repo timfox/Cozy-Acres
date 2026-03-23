@@ -54,6 +54,14 @@
 #include "sys_math.h"
 #include "sys_math3d.h"
 
+extern f32 m_lib_mod_f(f32 a, f32 m) {
+    f32 r = fmodf(a, m);
+    if (r < 0.0f) {
+        r += m;
+    }
+    return r;
+}
+
 /**
  * @brief Copy memory from the source buffer to the destination buffer.
  *

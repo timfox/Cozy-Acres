@@ -14,7 +14,26 @@ static u32 tlut_content_hash(const void* data, int tlut_fmt, int n_entries, int 
  * On PC, the game reuses memory buffers — same address can hold different
  * palette data (e.g., different NPC clothing). We track the first u16 of
  * each TLUT slot to detect content changes and force reloads. */
-u16 s_tlut_first_word[16];
+u32 s_tlut_palette_hash_cache[16];
+
+u32 pc_gx_tlut_palette_hash(const void* data, int n_entries) {
+    if (!data || n_entries <= 0) {
+        return 0;
+    }
+    int bytes = n_entries * 2;
+    if (bytes > 512) {
+        bytes = 512;
+    }
+    const u8* p = (const u8*)data;
+    u32 h = 0x811c9dc5u;
+    for (int i = 0; i < bytes; i++) {
+        h ^= p[i];
+        h *= 0x01000193u;
+    }
+    h ^= (u32)(n_entries & 0xFFFF);
+    h *= 0x01000193u;
+    return h;
+}
 
 /* --- texture cache --- */
 #define TEX_CACHE_SIZE 2048

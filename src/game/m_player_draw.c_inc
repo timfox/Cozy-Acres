@@ -1,3 +1,8 @@
+#ifdef TARGET_PC
+/* Valid RAM for ANIME_2_TXT_SEG when face bank isn't ready (avoids stale segment 9). */
+static u8 s_pc_player_mouth_segment_fallback[0x100] __attribute__((aligned(32)));
+#endif
+
 static void Player_actor_draw_Before_head(ACTOR* actorx, GAME* game, cKF_SkeletonInfo_R_c* kf, Gfx** gfx_pp, u8* flag,
                                           s_xyz* rot, xyz_t* pos) {
     PLAYER_ACTOR* player = (PLAYER_ACTOR*)actorx;
@@ -195,6 +200,16 @@ static void Player_actor_draw_Normal(ACTOR* actorx, GAME* game) {
 
     eye_tex_p = Player_actor_Get_eye_tex_p(actorx);
     mouth_tex_p = Player_actor_Get_mouth_tex_p(actorx);
+#ifdef TARGET_PC
+    if (mouth_tex_p == NULL) {
+        u8* face = mPlib_get_player_face_p(game);
+        if (face != NULL) {
+            mouth_tex_p = face + (mPlayer_EYE_TEX_NUM * 0x100);
+        } else {
+            mouth_tex_p = s_pc_player_mouth_segment_fallback;
+        }
+    }
+#endif
     graph = game->graph;
     moving_in_boat = FALSE;
 

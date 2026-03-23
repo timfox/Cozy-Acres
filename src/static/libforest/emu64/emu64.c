@@ -3817,7 +3817,8 @@ void emu64::dl_G_SETTILESIZE() {
 
 #ifdef TARGET_PC
 extern "C" void pc_gx_tlut_set_native_le(unsigned int idx);
-extern "C" u16 s_tlut_first_word[16];
+extern "C" u32 pc_gx_tlut_palette_hash(const void* data, int n_entries);
+extern "C" u32 s_tlut_palette_hash_cache[16];
 #endif
 
 void emu64::dl_G_LOADTLUT() {
@@ -3838,49 +3839,44 @@ void emu64::dl_G_LOADTLUT() {
             tlut_name = loadtlut_dol->tlut_name;
             tlut_addr = (void*)this->seg2k0(loadtlut_dol->tlut_addr);
 
+            bool need_tlut_load = true;
             if (tlut_addr == this->tlut_addresses[tlut_name]) {
                 /* Translation: ### Same TLUT address */
                 EMU64_INFO("### 同じTLUTアドレスです\n");
 #ifdef TARGET_PC
-                /* On PC, the game reuses memory buffers — same address can hold
-                 * different TLUT data (e.g., different NPC clothing palettes).
-                 * GC hardware always re-DMA'd, so the skip was harmless there.
-                 * On PC we must detect content changes and force a reload. */
-                if (tlut_addr != nullptr) {
-                    u16 first = *(u16*)tlut_addr;
-                    if (s_tlut_first_word[tlut_name] != first) {
-                        s_tlut_first_word[tlut_name] = first;
-                        this->tlut_addresses[tlut_name] = nullptr;
-                    }
+                if (tlut_addr != nullptr &&
+                    pc_gx_tlut_palette_hash(tlut_addr, (int)count) == s_tlut_palette_hash_cache[tlut_name]) {
+                    need_tlut_load = false;
                 }
+#else
+                need_tlut_load = false;
 #endif
-            } else { /* tlut_addr != this->tlut_addresses[tlut_name] */
+            }
+
+            if (need_tlut_load && tlut_addr != nullptr) {
                 aligned_addr = tlut_addr;
 
                 this->tlut_addresses[tlut_name] = tlut_addr;
-                if (tlut_addr != nullptr) {
-                    if (((u32)tlut_addr & (0x1F)) != 0) {
+                if (((u32)tlut_addr & (0x1F)) != 0) {
 #ifndef TARGET_PC
-                        /* The alignment of the palette (%08x) is not 32 bytes. */
-                        EMU64_PRINTF(
-                            VT_COL(RED, WHITE) "パレット(%08x)のアライメントが３２バイトになっていません\n" VT_RST,
-                            tlut_addr)
+                    /* The alignment of the palette (%08x) is not 32 bytes. */
+                    EMU64_PRINTF(VT_COL(RED, WHITE) "パレット(%08x)のアライメントが３２バイトになっていません\n" VT_RST,
+                                   tlut_addr)
 
-                        /* GC hardware DMA requires 32-byte alignment; truncate.
-                         * On PC we decode in software so the raw address is correct. */
-                        aligned_addr = (void*)((u32)tlut_addr & (~0x1F));
+                    /* GC hardware DMA requires 32-byte alignment; truncate.
+                     * On PC we decode in software so the raw address is correct. */
+                    aligned_addr = (void*)((u32)tlut_addr & (~0x1F));
 #endif
-                    }
-
-                    GXInitTlutObj(&this->tlut_objs[tlut_name], aligned_addr, GX_TL_RGB5A3, count);
-                    GXLoadTlut(&this->tlut_objs[tlut_name], tlut_name);
-#ifdef TARGET_PC
-                    pc_gx_tlut_set_native_le(tlut_name);
-                    s_tlut_first_word[tlut_name] = *(u16*)aligned_addr;
-#endif
-
-                    EMU64_INFOF("GXInitTlutObj %08x %d pal_no=%d\n", tlut_addr, count, tlut_name);
                 }
+
+                GXInitTlutObj(&this->tlut_objs[tlut_name], aligned_addr, GX_TL_RGB5A3, count);
+                GXLoadTlut(&this->tlut_objs[tlut_name], tlut_name);
+#ifdef TARGET_PC
+                pc_gx_tlut_set_native_le(tlut_name);
+                s_tlut_palette_hash_cache[tlut_name] = pc_gx_tlut_palette_hash(aligned_addr, (int)count);
+#endif
+
+                EMU64_INFOF("GXInitTlutObj %08x %d pal_no=%d\n", tlut_addr, count, tlut_name);
             }
         }
     } else {
@@ -3900,13 +3896,10 @@ void emu64::dl_G_LOADTLUT() {
                 /* Translation: ### Same TLUT address %08x %d */
                 EMU64_INFOF("### 同じTLUTアドレスです %08x %d\n", addr, tlut_name);
 #ifdef TARGET_PC
-                /* Same fix as type-2 path: detect content change at reused address.
-                 * Note: addr here is already a direct pointer (not a segment address),
-                 * so do NOT call seg2k0() — just cast directly. */
+                /* Same as Dolphin path: first u16 is insufficient when palette body changes. */
                 if (addr != 0) {
-                    u16 first = *(u16*)(uintptr_t)addr;
-                    if (s_tlut_first_word[tlut_name] != first) {
-                        s_tlut_first_word[tlut_name] = first;
+                    u32 ph = pc_gx_tlut_palette_hash((void*)(uintptr_t)addr, (int)count);
+                    if (ph != s_tlut_palette_hash_cache[tlut_name]) {
                         this->tlut_addresses[tlut_name] = nullptr;
                     }
                 }
@@ -3926,6 +3919,7 @@ void emu64::dl_G_LOADTLUT() {
                         GXLoadTlut(&this->tlut_objs[tlut_name], tlut_name);
 #ifdef TARGET_PC
                         pc_gx_tlut_set_native_le(tlut_name);
+                        s_tlut_palette_hash_cache[tlut_name] = pc_gx_tlut_palette_hash(tlut, (int)count);
 #endif
 
                         EMU64_INFOF("GXInitTlutObj %08x %d pal_no=%d\n", addr, (u16)count, tlut_name);

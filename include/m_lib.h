@@ -29,8 +29,10 @@ extern "C" {
 #define CALC_EASE(x) (1.0f - sqrtf(1.0f - (x)))
 #define CALC_EASE2(x) CALC_EASE(CALC_EASE(x))
 
-/* Float modulo operator */
-#define MOD_F(a, m) (a - (int)((a) * (1.0f / (m))) * (m))
+/* Float modulo into [0, m). Legacy (int) cast version was wrong for negative a and
+ * broke DEG2SHORT_ANGLE in cKF (s16 overflow) on negative keyframe samples. */
+extern f32 m_lib_mod_f(f32 a, f32 m);
+#define MOD_F(a, m) (m_lib_mod_f((f32)(a), (f32)(m)))
 
 /* radians -> short angle */
 #define RAD2SHORT_ANGLE(rad) ((s16)(int)((rad) * (65536.0f / (2.0f * F_PI))))

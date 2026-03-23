@@ -92,6 +92,10 @@ void pc_platform_update_window_size(void);
 #define PC_NOOP_WIDESCREEN_HORPLUS     0xAC5702u
 extern int g_pc_widescreen_stretch;
 
+/* emu64 TLUT reload: full-palette hash per slot (replaces first-u16 heuristic). */
+extern u32 s_tlut_palette_hash_cache[16];
+u32 pc_gx_tlut_palette_hash(const void* data, int n_entries);
+
 /* --- Functions --- */
 void pc_platform_init(void);
 void pc_platform_shutdown(void);
