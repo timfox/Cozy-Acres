@@ -741,8 +741,10 @@ extern ACTOR* Actor_info_make_actor(Actor_info* actor_info, GAME* game, s16 prof
 #ifdef TARGET_PC
     /* Skip actors with NULL or stubbed profiles (stub functions masquerading as struct data) */
     if (profile == NULL || profile->class_size == 0 || profile->class_size > 0x100000) {
-        fprintf(stderr, "[Actor] rejected profile %d: profile=%p class_size=%u\n", (int)profile_no, (void*)profile,
-                profile != NULL ? (unsigned int)profile->class_size : 0u);
+        if (g_pc_verbose) {
+            fprintf(stderr, "[Actor] rejected profile %d: profile=%p class_size=%u\n", (int)profile_no, (void*)profile,
+                    profile != NULL ? (unsigned int)profile->class_size : 0u);
+        }
         return NULL;
     }
 #endif

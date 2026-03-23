@@ -1032,10 +1032,27 @@ void GXSetScissor(u32 left, u32 top, u32 wd, u32 ht) {
     {
         float sx = (float)g_pc_window_w / (float)PC_GC_WIDTH;
         float sy = (float)g_pc_window_h / (float)PC_GC_HEIGHT;
-        int gl_x = (int)(left * sx);
-        int gl_w = (int)(wd * sx);
-        int gl_h = (int)(ht * sy);
-        int gl_y = g_pc_window_h - (int)(top * sy) - gl_h;
+        float fleft = (float)left;
+        float ftop = (float)top;
+        float fwd = (float)wd;
+        float fht = (float)ht;
+        float adj_left = fleft;
+        float adj_wd = fwd;
+
+        /* Match GXSetViewport: in pillarbox UI mode, partial scissors live in the 4:3 column */
+        if (g_pc_widescreen_stretch == 2 && g_aspect_active) {
+            int is_full = (fleft < 1.0f && ftop < 1.0f && fwd > (float)(PC_GC_WIDTH - 1) &&
+                           fht > (float)(PC_GC_HEIGHT - 1));
+            if (!is_full) {
+                adj_left = g_aspect_offset + fleft * g_aspect_factor;
+                adj_wd = fwd * g_aspect_factor;
+            }
+        }
+
+        int gl_x = (int)(adj_left * sx);
+        int gl_w = (int)(adj_wd * sx);
+        int gl_h = (int)(fht * sy);
+        int gl_y = g_pc_window_h - (int)(ftop * sy) - gl_h;
         glScissor(gl_x, gl_y, gl_w, gl_h);
     }
 #else

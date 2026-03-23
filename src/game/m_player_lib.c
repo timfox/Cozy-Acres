@@ -2355,12 +2355,12 @@ extern int mPlib_check_request_main_talk_type1_priority(GAME* game) {
 
     if (GET_PLAYER_ACTOR_GAME(game)->check_request_main_priority_proc(game, mPlayer_REQUEST_PRIORITY_19) > 0) {
         if (GET_PLAYER_ACTOR_GAME(game)->check_cancel_request_change_proc_index_proc(mPlayer_INDEX_TALK) == FALSE) {
+            /* Include DEMO_STANDING_TRAIN so mDemo_TYPE_TALK (engineer, etc.) can run on the train. */
             if (mPlib_get_player_actor_main_index(game) != mPlayer_INDEX_DEMO_WAIT &&
                 mPlib_get_player_actor_main_index(game) != mPlayer_INDEX_DEMO_WALK &&
                 mPlib_get_player_actor_main_index(game) != mPlayer_INDEX_TIRED &&
                 mPlib_get_player_actor_main_index(game) != mPlayer_INDEX_TALK &&
-                mPlib_get_player_actor_main_index(game) != mPlayer_INDEX_WASH_CAR &&
-                mPlib_get_player_actor_main_index(game) != mPlayer_INDEX_DEMO_STANDING_TRAIN) {
+                mPlib_get_player_actor_main_index(game) != mPlayer_INDEX_WASH_CAR) {
                 res = TRUE;
             }
         }
