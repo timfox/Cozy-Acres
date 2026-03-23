@@ -256,6 +256,7 @@ list(FILTER GAME_CXX_SOURCES EXCLUDE REGEX ".*/jsyswrapper_main\\.cpp$")
 # PC port source files
 # =============================================================================
 set(PC_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/pc_paths.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pc_main.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pc_gx.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pc_gx_tev.c

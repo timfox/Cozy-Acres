@@ -6,6 +6,7 @@
  * DDS: BC7, BC1/DXT1, BC3/DXT5, or uncompressed RGBA. */
 #include "pc_texture_pack.h"
 #include "pc_gx_internal.h"
+#include "pc_paths.h"
 #include "pc_settings.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -179,6 +180,29 @@ typedef struct {
 } TexPackWildcardEntry;
 
 static TexPackWildcardEntry* g_texpack_wc_map = NULL;
+
+/* Binary cache path: cwd pack dir or, if missing, next to the executable (see pc_texture_pack_init). */
+static char g_tpc_cache_path[640];
+
+static void init_tpc_cache_path(void) {
+    const char* def = "texture_pack/texture_cache.bin";
+    if (pc_path_is_readable(def)) {
+        snprintf(g_tpc_cache_path, sizeof(g_tpc_cache_path), "%s", def);
+        return;
+    }
+    {
+        char ed[512];
+        char alt[640];
+        if (pc_get_executable_directory(ed, sizeof(ed))) {
+            snprintf(alt, sizeof(alt), "%s/texture_pack/texture_cache.bin", ed);
+            if (pc_path_is_readable(alt)) {
+                snprintf(g_tpc_cache_path, sizeof(g_tpc_cache_path), "%s", alt);
+                return;
+            }
+        }
+    }
+    snprintf(g_tpc_cache_path, sizeof(g_tpc_cache_path), "%s", def);
+}
 
 /* --- Hash map operations --- */
 
@@ -634,7 +658,8 @@ static LoadedCacheEntry* loaded_cache_find(xxh_u64 key) {
     return NULL;
 }
 
-static void loaded_cache_insert(xxh_u64 key, GLuint tex, int w, int h) {
+/* Returns 1 if stored; 0 if table is full (caller must glDeleteTextures or hand off tex elsewhere). */
+static int loaded_cache_insert(xxh_u64 key, GLuint tex, int w, int h) {
     xxh_u32 slot = (xxh_u32)(key & LOADED_CACHE_MASK);
     for (int i = 0; i < LOADED_CACHE_SIZE; i++) {
         xxh_u32 idx = (slot + i) & LOADED_CACHE_MASK;
@@ -644,9 +669,18 @@ static void loaded_cache_insert(xxh_u64 key, GLuint tex, int w, int h) {
             g_loaded_cache[idx].tex_w = w;
             g_loaded_cache[idx].tex_h = h;
             g_loaded_cache[idx].occupied = 1;
-            return;
+            return 1;
         }
     }
+    {
+        static int warned;
+        if (!warned) {
+            printf("[TexturePack] Loaded-texture cache full (%d entries); HD textures still load but may re-read DDS until restart\n",
+                   LOADED_CACHE_SIZE);
+            warned = 1;
+        }
+    }
+    return 0;
 }
 
 /* --- Negative lookup cache (skip re-hashing textures with no pack match) --- */
@@ -711,6 +745,16 @@ void pc_texture_pack_init(void) {
     }
 
     scan_directory("texture_pack");
+    {
+        char ed[512];
+        char sub[600];
+        if (pc_get_executable_directory(ed, sizeof(ed))) {
+            snprintf(sub, sizeof(sub), "%s/texture_pack", ed);
+            scan_directory(sub);
+        }
+    }
+
+    init_tpc_cache_path();
 
     if (g_texpack_count > 0) {
         g_texpack_active = 1;
@@ -719,7 +763,7 @@ void pc_texture_pack_init(void) {
                g_has_bc7 ? "yes" : "no",
                g_has_s3tc ? "yes" : "no");
     } else {
-        printf("[TexturePack] No texture pack found in texture_pack/\n");
+        printf("[TexturePack] No texture pack in ./texture_pack or next to executable\n");
     }
 }
 
@@ -734,7 +778,6 @@ void pc_texture_pack_init(void) {
  */
 #define TPC_MAGIC   0x43505431  /* "TPC1" */
 #define TPC_VERSION 1
-#define TPC_FILE    "texture_pack/texture_cache.bin"
 
 typedef struct {
     xxh_u64 cache_key;
@@ -769,14 +812,17 @@ static int tpc_upload_entry(const TPCEntryHeader* eh, const unsigned char* pixel
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    loaded_cache_insert(eh->cache_key, tex, (int)eh->width, (int)eh->height);
+    if (!loaded_cache_insert(eh->cache_key, tex, (int)eh->width, (int)eh->height)) {
+        glDeleteTextures(1, &tex);
+        return 0;
+    }
     return 1;
 }
 
 /* Try loading from binary cache file. Returns 1 on success, 0 if cache missing/stale. */
 static int preload_from_cache(int expected_count) {
     extern SDL_Window* g_pc_window;
-    FILE* f = fopen(TPC_FILE, "rb");
+    FILE* f = fopen(g_tpc_cache_path, "rb");
     if (!f) return 0;
 
     xxh_u32 header[4];
@@ -951,7 +997,7 @@ void pc_texture_pack_preload_all(void) {
     /* Collect entries and load DDS + upload to GL + write cache simultaneously */
     FILE* cache_f = NULL;
     if (use_cache) {
-        cache_f = fopen(TPC_FILE, "wb");
+        cache_f = fopen(g_tpc_cache_path, "wb");
         if (cache_f) {
             xxh_u32 header[4] = { TPC_MAGIC, TPC_VERSION, 0, (xxh_u32)g_texpack_count };
             fwrite(header, 4, 4, cache_f); /* entry_count placeholder, patched later */
@@ -993,13 +1039,17 @@ void pc_texture_pack_preload_all(void) {
             if (glGetError() == GL_NO_ERROR) {
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                loaded_cache_insert(key, tex, (int)dds_w, (int)dds_h);
-                loaded++;
+                if (loaded_cache_insert(key, tex, (int)dds_w, (int)dds_h)) {
+                    loaded++;
 
-                if (cache_f) {
-                    fwrite(&eh, sizeof(eh), 1, cache_f);
-                    fwrite(pixels, 1, data_size, cache_f);
-                    cache_entries++;
+                    if (cache_f) {
+                        fwrite(&eh, sizeof(eh), 1, cache_f);
+                        fwrite(pixels, 1, data_size, cache_f);
+                        cache_entries++;
+                    }
+                } else {
+                    glDeleteTextures(1, &tex);
+                    failed++;
                 }
             } else {
                 glDeleteTextures(1, &tex);
@@ -1050,13 +1100,17 @@ void pc_texture_pack_preload_all(void) {
             if (glGetError() == GL_NO_ERROR) {
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                loaded_cache_insert(key, tex, (int)dds_w, (int)dds_h);
-                loaded++;
+                if (loaded_cache_insert(key, tex, (int)dds_w, (int)dds_h)) {
+                    loaded++;
 
-                if (cache_f) {
-                    fwrite(&eh, sizeof(eh), 1, cache_f);
-                    fwrite(pixels, 1, data_size, cache_f);
-                    cache_entries++;
+                    if (cache_f) {
+                        fwrite(&eh, sizeof(eh), 1, cache_f);
+                        fwrite(pixels, 1, data_size, cache_f);
+                        cache_entries++;
+                    }
+                } else {
+                    glDeleteTextures(1, &tex);
+                    failed++;
                 }
             } else {
                 glDeleteTextures(1, &tex);
@@ -1082,7 +1136,7 @@ void pc_texture_pack_preload_all(void) {
         xxh_u32 count32 = (xxh_u32)cache_entries;
         fwrite(&count32, 4, 1, cache_f);
         fclose(cache_f);
-        printf("[TexturePack] Wrote cache: %d textures to %s\n", cache_entries, TPC_FILE);
+        printf("[TexturePack] Wrote cache: %d textures to %s\n", cache_entries, g_tpc_cache_path);
     }
 
     if (g_pc_window) SDL_SetWindowTitle(g_pc_window, "Animal Crossing");
@@ -1193,10 +1247,19 @@ GLuint pc_texture_pack_lookup(const void* data, int data_size,
         }
     }
 
-    xxh_u64 cache_key = loaded_cache_key(data_hash, tlut_hash, (xxh_u32)fmt, (xxh_u32)w, (xxh_u32)h);
-    if (neg_cache_check(cache_key)) { g_stat_neg_hits++; return 0; }
+    /* Exact pack entries key on TLUT; wildcard ($) entries are shared across palettes — key with tlut_hash 0
+     * so preload and runtime agree (see pc_texture_pack_preload_all wildcard branch). */
+    xxh_u64 key_exact = loaded_cache_key(data_hash, tlut_hash, (xxh_u32)fmt, (xxh_u32)w, (xxh_u32)h);
+    xxh_u64 key_wc = (tlut_hash != 0)
+                         ? loaded_cache_key(data_hash, 0, (xxh_u32)fmt, (xxh_u32)w, (xxh_u32)h)
+                         : key_exact;
 
-    LoadedCacheEntry* loaded = loaded_cache_find(cache_key);
+    if (neg_cache_check(key_exact)) { g_stat_neg_hits++; return 0; }
+    if (tlut_hash != 0 && neg_cache_check(key_wc)) { g_stat_neg_hits++; return 0; }
+
+    LoadedCacheEntry* loaded = loaded_cache_find(key_exact);
+    if (!loaded && tlut_hash != 0)
+        loaded = loaded_cache_find(key_wc);
     if (loaded) {
         g_stat_cache_hits++;
         if (out_w) *out_w = loaded->tex_w;
@@ -1212,7 +1275,9 @@ GLuint pc_texture_pack_lookup(const void* data, int data_size,
         wc_entry = texpack_find_wildcard(data_hash, (xxh_u32)fmt, (xxh_u32)w, (xxh_u32)h);
     }
     if (!entry && !wc_entry) {
-        neg_cache_insert(cache_key);
+        neg_cache_insert(key_exact);
+        if (tlut_hash != 0)
+            neg_cache_insert(key_wc);
         return 0;
     }
     g_stat_hits++;
@@ -1222,7 +1287,9 @@ GLuint pc_texture_pack_lookup(const void* data, int data_size,
     GLuint tex = load_dds_file(path, &dds_w, &dds_h);
     if (!tex) {
         printf("[TexturePack] Failed to load DDS: %s\n", path);
-        neg_cache_insert(cache_key);
+        neg_cache_insert(key_exact);
+        if (tlut_hash != 0)
+            neg_cache_insert(key_wc);
         return 0;
     }
 
@@ -1230,7 +1297,9 @@ GLuint pc_texture_pack_lookup(const void* data, int data_size,
     printf("[TexturePack] Loaded HD %dx%d (was %dx%d): %s\n",
            dds_w, dds_h, w, h, path);
 
-    loaded_cache_insert(cache_key, tex, dds_w, dds_h);
+    xxh_u64 insert_key = entry ? key_exact : key_wc;
+    (void)loaded_cache_insert(insert_key, tex, dds_w, dds_h);
+    /* If RAM cache is full, tex is still valid; later draws may re-load the same DDS from disk. */
 
     if (out_w) *out_w = dds_w;
     if (out_h) *out_h = dds_h;

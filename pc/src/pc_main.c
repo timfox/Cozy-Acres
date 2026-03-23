@@ -1,5 +1,6 @@
 /* pc_main.c - PC entry point: SDL2/GL init, crash protection, boot sequence */
 #include "pc_platform.h"
+#include "pc_paths.h"
 #include "pc_gx_internal.h"
 #include "pc_texture_pack.h"
 #include "pc_settings.h"
@@ -193,12 +194,9 @@ void pc_platform_init(void) {
     }
     pc_linux_preload_llvm_rtld_global();
 #endif
-#if defined(__linux__)
-    /* VIDEO only first: fewer SDL threads while Mesa/LLVM loads during SDL_CreateWindow. */
+    /* VIDEO first on all platforms: defers gamepad/audio/timer init until after GL context
+     * (matches Linux stability path; harmless on Windows). */
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-#else
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
-#endif
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         exit(1);
     }
@@ -261,7 +259,6 @@ void pc_platform_init(void) {
         exit(1);
     }
 
-#if defined(__linux__)
     if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
         fprintf(stderr, "SDL_InitSubSystem failed: %s\n", SDL_GetError());
         SDL_GL_DeleteContext(g_pc_gl_context);
@@ -269,7 +266,6 @@ void pc_platform_init(void) {
         SDL_Quit();
         exit(1);
     }
-#endif
 
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
 

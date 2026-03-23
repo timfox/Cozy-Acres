@@ -375,7 +375,7 @@ u8* pc_disc_extract_dol(void) {
         return NULL;
     }
     if (g_pc_verbose)
-        printf("[PC] DOL: %u bytes (offset 0x%X)\n", g_dol_size, g_dol_offset);
+        printf("[PC] DOL: %lu bytes (offset 0x%lX)\n", (unsigned long)g_dol_size, (unsigned long)g_dol_offset);
     return buf;
 }
 
@@ -405,11 +405,12 @@ u8* pc_disc_extract_rel(void) {
             return NULL;
         }
         if (g_pc_verbose)
-            printf("[PC] REL: %u bytes (Yaz0: %u -> %u)\n", dec_sz, sz, dec_sz);
+            printf("[PC] REL: %lu bytes (Yaz0: %lu -> %lu)\n", (unsigned long)dec_sz, (unsigned long)sz,
+                   (unsigned long)dec_sz);
         return dec;
     }
 
-    if (g_pc_verbose) printf("[PC] REL: %u bytes (raw)\n", sz);
+    if (g_pc_verbose) printf("[PC] REL: %lu bytes (raw)\n", (unsigned long)sz);
     return raw;
 }
 

@@ -758,8 +758,9 @@ void GXLoadTexObj(void* obj, u32 id) {
 
             o[TEXOBJ_GL_TEX] = hd_tex;
             g_gx.gl_textures[id] = hd_tex;
-            g_gx.tex_obj_w[id] = width;
-            g_gx.tex_obj_h[id] = height;
+            /* Replacement may be higher-res; keep native w/h in texobj for GXGet*, track HD size for PC. */
+            g_gx.tex_obj_w[id] = (hd_w > 0) ? hd_w : width;
+            g_gx.tex_obj_h[id] = (hd_h > 0) ? hd_h : height;
             g_gx.tex_obj_fmt[id] = (int)format;
             DIRTY(PC_GX_DIRTY_TEXTURES);
             return;
