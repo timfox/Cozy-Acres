@@ -1,5 +1,6 @@
 #include "ac_gyoei.h"
 
+#include "m_actor.h"
 #include "m_common_data.h"
 #include "m_player_lib.h"
 #include "ac_uki.h"
@@ -249,7 +250,7 @@ static void aGKK_position_calc(aGYO_CTRL_ACTOR* gyo) {
 }
 
 static int aGKK_swim_speed_check(aGYO_CTRL_ACTOR* gyo, f32 target, f32 step, f32 speed) {
-    int ret = chase_f(&gyo->fwork3, target, step * 0.5f);
+    int ret = chase_f(&gyo->fwork3, target, step * mActor_GetPhysicsDtScale());
     
     gyo->tools_class.actor_class.speed = aGKK_speed_calc(speed, DEG2SHORT_ANGLE2(gyo->fwork3));
     return ret;

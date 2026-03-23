@@ -8,6 +8,7 @@
 
 #include "ac_ins_mino.h"
 
+#include "m_actor.h"
 #include "m_name_table.h"
 #include "m_common_data.h"
 #include "m_player_lib.h"
@@ -122,8 +123,11 @@ static void aIMN_position_move(ACTOR* actorx) {
     f32 counter = aIMN_ANIM_TIME(insect);
 
     xyz_t_move(&actorx->last_world_position, &actorx->world.position);
-    chase_f(&actorx->speed, insect->target_speed, insect->speed_step * 0.5f);
-    counter += actorx->speed * 0.5f;
+    {
+        f32 dt = mActor_GetPhysicsDtScale();
+        chase_f(&actorx->speed, insect->target_speed, insect->speed_step * dt);
+        counter += actorx->speed * dt;
+    }
     aIMN_ANIM_TIME(insect) = counter;
     actorx->world.position.y = actorx->home.position.y + cos_s(angleX) * counter;
     actorx->world.position.z = aIMN_BASE_POS_Z(insect) - sin_s(angleX) * counter;

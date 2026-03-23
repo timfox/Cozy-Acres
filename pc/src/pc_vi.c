@@ -76,15 +76,20 @@ void VIWaitForRetrace(void) {
     {
         static Uint64 fps_start = 0;
         static int fps_count = 0;
+        static int last_title_fps = -1;
         if (fps_start == 0) fps_start = SDL_GetPerformanceCounter();
         fps_count++;
         if (fps_count >= 60) {
             Uint64 now = SDL_GetPerformanceCounter();
             double secs = (double)(now - fps_start) / (double)perf_freq;
             double fps = (double)fps_count / secs;
-            char title[64];
-            snprintf(title, sizeof(title), "Animal Crossing - %.1f FPS", fps);
-            SDL_SetWindowTitle(g_pc_window, title);
+            int rounded = (int)(fps + 0.5);
+            if (rounded != last_title_fps) {
+                char title[64];
+                snprintf(title, sizeof(title), "Animal Crossing - %.1f FPS", fps);
+                SDL_SetWindowTitle(g_pc_window, title);
+                last_title_fps = rounded;
+            }
             fps_start = now;
             fps_count = 0;
         }

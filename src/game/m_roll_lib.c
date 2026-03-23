@@ -1,6 +1,7 @@
 #include "m_roll_lib.h"
 
 #include "ac_snowman.h"
+#include "m_actor.h"
 #include "m_collision_bg.h"
 #include "m_common_data.h"
 #include "m_demo.h"
@@ -30,9 +31,12 @@ extern int mRlib_position_move_for_sloop(ACTOR* actor, s_xyz* slope_angle) {
         f32 y = actor->position_speed.y;
         f32 z = (actor->position_speed.z * ABS(cos_s(slope_angle->x))); // duplicates cos_s call (3x)
 
-        actor->world.position.x += x * 0.5f + actor->status_data.collision_vec.x;
-        actor->world.position.y += y * 0.5f + actor->status_data.collision_vec.y;
-        actor->world.position.z += z * 0.5f + actor->status_data.collision_vec.z;
+        {
+            f32 dt = mActor_GetPhysicsDtScale();
+            actor->world.position.x += x * dt + actor->status_data.collision_vec.x;
+            actor->world.position.y += y * dt + actor->status_data.collision_vec.y;
+            actor->world.position.z += z * dt + actor->status_data.collision_vec.z;
+        }
 
         return TRUE;
     } else {

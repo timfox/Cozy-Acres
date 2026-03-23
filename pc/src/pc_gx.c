@@ -36,6 +36,28 @@ static void pc_gx_update_aspect(void) {
     }
 }
 
+/* Shared by GXSetViewport / GXSetScissor: pillarbox UI mode maps partial rects into the 4:3 column */
+static void pc_gx_gc_rect_to_gl_pixels(float left, float top, float wd, float ht, int* out_x, int* out_y, int* out_w,
+                                       int* out_h) {
+    float sx = (float)g_pc_window_w / (float)PC_GC_WIDTH;
+    float sy = (float)g_pc_window_h / (float)PC_GC_HEIGHT;
+    float adj_left = left;
+    float adj_wd = wd;
+
+    if (g_pc_widescreen_stretch == 2 && g_aspect_active) {
+        int is_full = (left < 1.0f && top < 1.0f && wd > (float)(PC_GC_WIDTH - 1) && ht > (float)(PC_GC_HEIGHT - 1));
+        if (!is_full) {
+            adj_left = g_aspect_offset + left * g_aspect_factor;
+            adj_wd = wd * g_aspect_factor;
+        }
+    }
+
+    *out_w = (int)(adj_wd * sx);
+    *out_h = (int)(ht * sy);
+    *out_x = (int)(adj_left * sx);
+    *out_y = g_pc_window_h - (int)(top * sy) - *out_h;
+}
+
 /* EFB capture: keep full-res GL textures from GXCopyTex instead of downsampling to 640x480 */
 #define MAX_EFB_CAPTURES 4
 static struct {
@@ -1030,29 +1052,8 @@ void GXSetScissor(u32 left, u32 top, u32 wd, u32 ht) {
     glEnable(GL_SCISSOR_TEST);
 #ifdef PC_ENHANCEMENTS
     {
-        float sx = (float)g_pc_window_w / (float)PC_GC_WIDTH;
-        float sy = (float)g_pc_window_h / (float)PC_GC_HEIGHT;
-        float fleft = (float)left;
-        float ftop = (float)top;
-        float fwd = (float)wd;
-        float fht = (float)ht;
-        float adj_left = fleft;
-        float adj_wd = fwd;
-
-        /* Match GXSetViewport: in pillarbox UI mode, partial scissors live in the 4:3 column */
-        if (g_pc_widescreen_stretch == 2 && g_aspect_active) {
-            int is_full = (fleft < 1.0f && ftop < 1.0f && fwd > (float)(PC_GC_WIDTH - 1) &&
-                           fht > (float)(PC_GC_HEIGHT - 1));
-            if (!is_full) {
-                adj_left = g_aspect_offset + fleft * g_aspect_factor;
-                adj_wd = fwd * g_aspect_factor;
-            }
-        }
-
-        int gl_x = (int)(adj_left * sx);
-        int gl_w = (int)(adj_wd * sx);
-        int gl_h = (int)(fht * sy);
-        int gl_y = g_pc_window_h - (int)(ftop * sy) - gl_h;
+        int gl_x, gl_y, gl_w, gl_h;
+        pc_gx_gc_rect_to_gl_pixels((float)left, (float)top, (float)wd, (float)ht, &gl_x, &gl_y, &gl_w, &gl_h);
         glScissor(gl_x, gl_y, gl_w, gl_h);
     }
 #else

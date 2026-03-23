@@ -188,7 +188,9 @@ static void aBALL_position_move(BALL_ACTOR* actor) {
     if (!(actor->state_flags & aBALL_STATE_IN_HOLE)) {
         mRlib_spdF_Angle_to_spdXZ(&actor->actor_class.position_speed, &actor->actor_class.speed,
                                   &actor->actor_class.world.angle.y);
-        chase_f(&actor->actor_class.position_speed.y, actor->actor_class.max_velocity_y, actor->actor_class.gravity);
+        /* Ball used 1.0f*gravity vs Actor_position_speed_set's 0.5f*gravity on GC — keep 2x ratio for any dt scale */
+        chase_f(&actor->actor_class.position_speed.y, actor->actor_class.max_velocity_y,
+                2.0f * mActor_GetPhysicsDtScale() * actor->actor_class.gravity);
 
         mRlib_position_move_for_sloop(&actor->actor_class, &angle);
 

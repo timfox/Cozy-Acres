@@ -1,5 +1,6 @@
 #include "ac_ins_ka.h"
 
+#include "m_actor.h"
 #include "m_field_info.h"
 #include "m_name_table.h"
 #include "m_common_data.h"
@@ -63,7 +64,7 @@ static void aIKA_fuwafuwa(aINS_INSECT_ACTOR* insect) {
     angle += 0x180;
     now_spd_angle = aIKA_TURN_SPEED(insect) * sin_s(angle);
     chase_f(&aIKA_SPEED(insect), insect->tools_actor.actor_class.max_velocity_y,
-            insect->tools_actor.actor_class.gravity * 0.5f);
+            mActor_GetPhysicsDtScale() * insect->tools_actor.actor_class.gravity);
     insect->tools_actor.actor_class.position_speed.y = aIKA_SPEED(insect) + (now_spd_angle - last_spd_angle);
 }
 
