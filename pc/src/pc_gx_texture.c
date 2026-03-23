@@ -47,7 +47,13 @@ static int gc_format_bpp(u32 format) {
 }
 
 /* FNV-1a hash of texture data to detect buffer reuse with different content.
- * Hashes first 256 + last 256 bytes (or all if <= 512). */
+ * Mouths and other effects animate by writing into the *middle* of the same
+ * buffer (same pointer). Head+tail-only sampling caused identical hashes and
+ * stale texture-cache hits — corrupted mid-texture regions on screen.
+ *
+ * - Small (<= 512 B): hash all.
+ * - Medium (<= 128 KiB): hash all (typical faces/NPC sheets; cost is fine).
+ * - Large: head + tail + many evenly spaced 64-byte windows across the buffer. */
 static u32 tex_content_hash(const void* data, int width, int height, u32 format) {
     if (!data) return 0;
     int bpp = gc_format_bpp(format);
@@ -55,19 +61,34 @@ static u32 tex_content_hash(const void* data, int width, int height, u32 format)
     const u8* p = (const u8*)data;
     u32 h = 0x811c9dc5u;
     if (data_size <= 512) {
-        /* small texture: hash everything */
         for (int i = 0; i < data_size; i++) {
             h ^= p[i];
             h *= 0x01000193u;
         }
-    } else {
-        /* large texture: sample head + tail */
-        for (int i = 0; i < 256; i++) {
+        return h;
+    }
+    if (data_size <= 131072) {
+        for (int i = 0; i < data_size; i++) {
             h ^= p[i];
             h *= 0x01000193u;
         }
-        for (int i = data_size - 256; i < data_size; i++) {
-            h ^= p[i];
+        return h;
+    }
+    for (int i = 0; i < 256; i++) {
+        h ^= p[i];
+        h *= 0x01000193u;
+    }
+    for (int i = data_size - 256; i < data_size; i++) {
+        h ^= p[i];
+        h *= 0x01000193u;
+    }
+    /* 32 interior samples along the whole image (including near-center mouths). */
+    for (int k = 0; k < 32; k++) {
+        int off = (int)((unsigned)k * (unsigned)(data_size - 64) / 31u);
+        if (off < 0) off = 0;
+        if (off > data_size - 64) off = data_size - 64;
+        for (int j = 0; j < 64; j++) {
+            h ^= p[off + j];
             h *= 0x01000193u;
         }
     }
