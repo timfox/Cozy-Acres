@@ -377,8 +377,9 @@ int pc_platform_poll_events(void) {
 extern void ac_entry(void);
 extern int boot_main(int argc, const char** argv);
 
-/* Match desktop launchers that set Path= to the install folder: assets/, rom/, orig/, settings.ini
- * are all resolved relative to cwd; running from a terminal elsewhere breaks those paths. */
+/* Fallback when cwd has no disc image: dev trees often keep rom/orig at repo root while the
+ * binary lives under pc/build32/bin. Packaged installs colocate disc + exe, so disc init often
+ * succeeds on the first try without chdir. */
 static void pc_chdir_to_exe_dir(void) {
 #ifdef _WIN32
     char path[MAX_PATH];
@@ -406,6 +407,14 @@ static void pc_chdir_to_exe_dir(void) {
             fprintf(stderr, "[PC] chdir to exe dir failed: %s\n", path);
     }
 #endif
+}
+
+static int pc_probe_preextracted_rom(void) {
+    FILE* f = fopen("orig/GAFE01_00/sys/main.dol", "rb");
+    if (!f)
+        return 0;
+    fclose(f);
+    return 1;
 }
 
 int main(int argc, char* argv[]) {
@@ -448,8 +457,6 @@ int main(int argc, char* argv[]) {
         setvbuf(stderr, NULL, _IONBF, 0);
     }
 
-    pc_chdir_to_exe_dir();
-
     /* exe image range for seg2k0 — BSS can overlap N64 segment addresses */
 #ifdef _WIN32
     {
@@ -487,7 +494,14 @@ int main(int argc, char* argv[]) {
     pc_settings_load();
     pc_keybindings_load();
     pc_platform_init();
-    pc_disc_init();
+    /* Disc search uses . / orig / rom relative to cwd. Prefer cwd when it already has game data
+     * (rom next to repo, or orig/ tree) so we do not break that layout by jumping to build/bin. */
+    if (!pc_disc_init() && !pc_probe_preextracted_rom()) {
+        pc_chdir_to_exe_dir();
+        if (!pc_disc_init() && g_pc_verbose)
+            fprintf(stderr,
+                    "[PC] No .ciso/.iso/.gcm in cwd or executable directory (./ orig/ rom/)\n");
+    }
     pc_assets_init();
 
     ac_entry();                         /* sets HotStartEntry = &entry */

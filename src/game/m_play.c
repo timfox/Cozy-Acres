@@ -685,10 +685,16 @@ static int makeBumpTexture(GAME_PLAY* play, GRAPH* graph1, GRAPH* graph2) {
         gSPDisplayList(NEXT_OVERLAY_DISP, polydisp);
 
 #ifdef TARGET_PC
-        /* Tell GXSetProjection to skip widescreen aspect correction for
-         * transitions (wipes, fades) so they fill the entire screen.
-         * See pc_platform.h for how the marker/flag mechanism works. */
-        gDPNoOpTag(polydisp++, PC_NOOP_WIDESCREEN_STRETCH);
+        /* Only toggle widescreen stretch when something actually draws in this overlay.
+         * Unconditional STRETCH/HORPLUS every frame could leave projection/viewport logic
+         * briefly inconsistent with Camera2/actors during scene transitions on PC. */
+        {
+            u32 fd = play->fade_color_value.rgba8888;
+            int pc_ws_overlay = (play->fb_wipe_mode == WIPE_MODE_MOVE) ||
+                                (play->color_fade.color.a != 0) || ((fd & 0xFFu) != 0u);
+            if (pc_ws_overlay) {
+                gDPNoOpTag(polydisp++, PC_NOOP_WIDESCREEN_STRETCH);
+            }
 #endif
 
         if (play->fb_wipe_mode == WIPE_MODE_MOVE) {
@@ -709,8 +715,10 @@ static int makeBumpTexture(GAME_PLAY* play, GRAPH* graph1, GRAPH* graph2) {
         fbdemo_fade_draw(&play->color_fade, &polydisp);
         fade_rgba8888_draw(&polydisp, play->fade_color_value.rgba8888);
 #ifdef TARGET_PC
-        /* Wipes/fades used stretch mode; restore hor+ before actors and Camera2_draw. */
-        gDPNoOpTag(polydisp++, PC_NOOP_WIDESCREEN_HORPLUS);
+            if (pc_ws_overlay) {
+                gDPNoOpTag(polydisp++, PC_NOOP_WIDESCREEN_HORPLUS);
+            }
+        }
 #endif
 
         gSPEndDisplayList(polydisp++);
