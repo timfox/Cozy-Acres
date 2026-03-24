@@ -540,7 +540,7 @@ static void aBALL_set_spd_relations_in_water(ACTOR* actor, GAME* game) {
     mCoBG_GetWaterFlow(&pos_flow, actor->bg_collision_check.result.unit_attribute);
 
     angle = atans_table(pos_flow.z, pos_flow.x);
-    apply_angle = ABS((s16)(actor->world.angle.y - angle));
+    apply_angle = ABS(mLib_AngleDiffShortest(actor->world.angle.y, angle));
 
     chase_angle(&actor->world.angle.y, angle, angl_add_table[apply_angle > 0x4000]);
 

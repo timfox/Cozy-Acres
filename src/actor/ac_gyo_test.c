@@ -1,6 +1,7 @@
 #include "ac_gyoei.h"
 
 #include "m_actor.h"
+#include "m_lib.h"
 #include "m_common_data.h"
 #include "m_player_lib.h"
 #include "ac_uki.h"
@@ -288,7 +289,8 @@ static void aGTT_flow_direction(ACTOR* actorx) {
     static s16 angl_add_table[] = { 0x100, 0x400 };
     s16 flow_rv = aGTT_Get_flow_angle_rv(actorx);
 
-    chase_angle(&actorx->world.angle.y, flow_rv, angl_add_table[ABS((s16)(actorx->world.angle.y - flow_rv)) > 0x4000]);
+    chase_angle(&actorx->world.angle.y, flow_rv,
+                angl_add_table[ABS(mLib_AngleDiffShortest(actorx->world.angle.y, flow_rv)) > 0x4000]);
     actorx->shape_info.rotation.y = actorx->world.angle.y;
 }
 

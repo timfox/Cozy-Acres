@@ -696,11 +696,33 @@ void Matrix_to_rotate_new(MtxF* curm, s_xyz* vec, int flag) {
     f32 temp2;
     f32 temp3;
     f32 temp4;
+#ifdef TARGET_PC
+    f32 xz_plane_len;
+#endif
 
     temp = curm->xz;
     temp *= temp;
     temp += (curm->zz * curm->zz);
-    vec->x = RAD2SHORT_ANGLE2(fatan2(-curm->yz, sqrtf(temp)));
+#ifdef TARGET_PC
+    if (temp < 0.0f) {
+        temp = 0.0f;
+    }
+    xz_plane_len = sqrtf(temp);
+    /* Exact s16 compare for ±90° almost never hits; near-gimbal atan2(sqrt(~0)) flips euler branches one frame. */
+    if (xz_plane_len < 1e-6f) {
+        vec->x = (curm->yz < 0.0f) ? DEG2SHORT_ANGLE2(90.0f) : DEG2SHORT_ANGLE2(-90.0f);
+        vec->z = 0;
+        vec->y = RAD2SHORT_ANGLE2(fatan2(-curm->zx, curm->xx));
+    } else
+#endif
+    {
+        vec->x = RAD2SHORT_ANGLE2(fatan2(-curm->yz,
+#ifdef TARGET_PC
+                                          xz_plane_len));
+#else
+                                          sqrtf(temp)));
+#endif
+    }
 
     if ((vec->x == DEG2SHORT_ANGLE2(90.0f)) || (vec->x == DEG2SHORT_ANGLE2(-90.0f))) {
         vec->z = 0;
@@ -719,6 +741,11 @@ void Matrix_to_rotate_new(MtxF* curm, s_xyz* vec, int flag) {
             temp += curm->zx * curm->zx;
             temp += (temp2 * temp2);
             /* temp = xx^2+zx^2+yx^2 == 1 for a rotation matrix */
+#ifdef TARGET_PC
+            if (temp < 0.0f) {
+                temp = 0.0f;
+            }
+#endif
             temp = temp2 / sqrtf(temp);
 
             temp2 = curm->xy;
@@ -727,6 +754,11 @@ void Matrix_to_rotate_new(MtxF* curm, s_xyz* vec, int flag) {
             temp2 += curm->zy * curm->zy;
             temp2 += (temp3 * temp3);
             /* temp2 = xy^2+zy^2+yy^2 == 1 for a rotation matrix */
+#ifdef TARGET_PC
+            if (temp2 < 0.0f) {
+                temp2 = 0.0f;
+            }
+#endif
             temp2 = temp3 / sqrtf(temp2);
 
             /* for a rotation matrix, temp == yx and temp2 == yy
@@ -741,11 +773,32 @@ void Matrix_to_rotate2_new(MtxF* curm, s_xyz* v, int flag) {
     f32 temp2;
     f32 temp3;
     f32 temp4;
+#ifdef TARGET_PC
+    f32 xy_plane_len;
+#endif
 
     temp = curm->xx;
     temp *= temp;
     temp += (curm->yx * curm->yx);
-    v->y = RAD2SHORT_ANGLE2(fatan2(-curm->zx, sqrtf(temp)));
+#ifdef TARGET_PC
+    if (temp < 0.0f) {
+        temp = 0.0f;
+    }
+    xy_plane_len = sqrtf(temp);
+    if (xy_plane_len < 1e-6f) {
+        v->y = (curm->zx < 0.0f) ? DEG2SHORT_ANGLE2(90.0f) : DEG2SHORT_ANGLE2(-90.0f);
+        v->x = 0;
+        v->z = RAD2SHORT_ANGLE2(fatan2(-curm->xy, curm->yy));
+    } else
+#endif
+    {
+        v->y = RAD2SHORT_ANGLE2(fatan2(-curm->zx,
+#ifdef TARGET_PC
+                                          xy_plane_len));
+#else
+                                          sqrtf(temp)));
+#endif
+    }
 
     if ((v->y == DEG2SHORT_ANGLE2(90.0f)) || (v->y == DEG2SHORT_ANGLE2(-90.0f))) {
         v->x = 0;
@@ -763,6 +816,11 @@ void Matrix_to_rotate2_new(MtxF* curm, s_xyz* v, int flag) {
             temp += curm->yy * curm->yy;
             temp += (temp2 * temp2);
             /* temp = zx^2+yy^2+zy^2 == 1 for a rotation matrix */
+#ifdef TARGET_PC
+            if (temp < 0.0f) {
+                temp = 0.0f;
+            }
+#endif
             temp = temp2 / sqrtf(temp);
 
             temp2 = curm->xz;
@@ -771,6 +829,11 @@ void Matrix_to_rotate2_new(MtxF* curm, s_xyz* v, int flag) {
             temp2 += curm->yz * curm->yz;
             temp2 += (temp3 * temp3);
             /* temp2 = xz^2+yz^2+zz^2 == 1 for a rotation matrix */
+#ifdef TARGET_PC
+            if (temp2 < 0.0f) {
+                temp2 = 0.0f;
+            }
+#endif
             temp2 = temp3 / sqrtf(temp2);
 
             v->x = RAD2SHORT_ANGLE2(fatan2(temp, temp2));
