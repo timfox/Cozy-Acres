@@ -58,11 +58,9 @@ extern f32 m_lib_mod_f(f32 a, f32 m);
 /* degrees -> radians */
 #define DEG2RAD(deg) ((F_PI / 180.0f) * (deg))
 
-/* Linear s16 difference; for yaw deltas prefer mLib_AngleDiffShortest. */
+// short angle difference
 #define DIFF_SHORT_ANGLE(x, y) ((s16)((x) - (y)))
 #define DIFF_USHORT_ANGLE(x, y) ((u16)((x) - (y)))
-
-extern s16 mLib_AngleDiffShortest(s16 from, s16 to);
 
 typedef struct rgba_t { // can be put in other place
     u8 r, g, b, a;

@@ -54,17 +54,6 @@
 #include "sys_math.h"
 #include "sys_math3d.h"
 
-extern s16 mLib_AngleDiffShortest(s16 from, s16 to) {
-    s32 d = (s32)(u16)to - (s32)(u16)from;
-
-    if (d > 32767) {
-        d -= 65536;
-    } else if (d < -32768) {
-        d += 65536;
-    }
-    return (s16)d;
-}
-
 extern f32 m_lib_mod_f(f32 a, f32 m) {
     f32 r = fmodf(a, m);
     if (r < 0.0f) {
@@ -287,20 +276,14 @@ extern f32 chase_xyz_t(xyz_t* const pValue, const xyz_t* const target, const f32
  */
 extern int chase_angle2(s16* const pValue, const s16 limit, const s16 step) {
     s16 prev = *pValue;
-    s16 d_prev = mLib_AngleDiffShortest(prev, limit);
 
     *pValue += step;
+    if (((s16)(*pValue - limit) * (s16)(prev - limit)) <= 0) {
+        s32 absDiff = ABS((s16)(*pValue - limit));
 
-    {
-        s16 d_new = mLib_AngleDiffShortest(*pValue, limit);
-
-        if (((s32)d_new * (s32)d_prev) <= 0) {
-            s32 absDiff = ABS((s32)d_new);
-
-            if (absDiff < 16384) {
-                *pValue = limit;
-                return TRUE;
-            }
+        if (absDiff < 16384) {
+            *pValue = limit;
+            return TRUE;
         }
     }
 
@@ -578,7 +561,7 @@ extern void add_calc0(f32* pValue, f32 fraction, f32 maxStep) {
  */
 extern s16 add_calc_short_angle2(s16* pValue, s16 target, f32 fraction, s16 maxStep, s16 minStep) {
     s16 stepSize = 0;
-    s16 diff = mLib_AngleDiffShortest(*pValue, target);
+    s16 diff = target - *pValue;
 
     if (*pValue != target) {
         stepSize = (s16)(diff * fraction);
@@ -593,29 +576,29 @@ extern s16 add_calc_short_angle2(s16* pValue, s16 target, f32 fraction, s16 maxS
             *pValue += stepSize;
 
             if (stepSize > 0) {
-                if (mLib_AngleDiffShortest(*pValue, target) < 0) {
+                if ((s16)(target - *pValue) < 0) {
                     *pValue = target;
                 }
             } else {
-                if (mLib_AngleDiffShortest(*pValue, target) > 0) {
+                if ((s16)(target - *pValue) > 0) {
                     *pValue = target;
                 }
             }
         } else {
             if (diff >= 0) {
                 *pValue += minStep;
-                if (mLib_AngleDiffShortest(*pValue, target) < 0) {
+                if ((s16)(target - *pValue) < 0) {
                     *pValue = target;
                 }
             } else {
                 *pValue -= minStep;
-                if (mLib_AngleDiffShortest(*pValue, target) > 0) {
+                if ((s16)(target - *pValue) > 0) {
                     *pValue = target;
                 }
             }
         }
     }
-    return mLib_AngleDiffShortest(*pValue, target);
+    return target - *pValue;
 }
 
 /**

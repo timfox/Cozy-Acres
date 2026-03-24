@@ -3,93 +3,6 @@
 #ifdef TARGET_PC
 /* Valid RAM for ANIME_1/2 when a table slot is NULL (avoids stale segment 8/9 from previous draw). */
 static u8 s_pc_npc_anime12_fallback[0x100] __attribute__((aligned(32)));
-
-/* Matrix_to_rotate_new() assumes a pure rotation; aNPC_set_chn_base applies non-uniform scale first,
- * so the upper 3x3 is not orthonormal. Orthonormalize column basis before euler extraction. */
-static void aNPC_matrix_to_rotate_for_head(MtxF* curm, s_xyz* vec, int flag) {
-    f32 ax = curm->xx, ay = curm->yx, az = curm->zx;
-    f32 bx = curm->xy, by = curm->yy, bz = curm->zy;
-    f32 len_a_sq = ax * ax + ay * ay + az * az;
-    f32 len_b_sq = bx * bx + by * by + bz * bz;
-
-    if (len_a_sq < 1e-12f || len_b_sq < 1e-12f) {
-        Matrix_to_rotate_new(curm, vec, flag);
-        return;
-    }
-
-    {
-        f32 len_a = sqrtf(len_a_sq);
-
-        ax /= len_a;
-        ay /= len_a;
-        az /= len_a;
-    }
-
-    {
-        f32 dot = ax * bx + ay * by + az * bz;
-
-        bx -= dot * ax;
-        by -= dot * ay;
-        bz -= dot * az;
-    }
-    len_b_sq = bx * bx + by * by + bz * bz;
-    if (len_b_sq < 1e-12f) {
-        Matrix_to_rotate_new(curm, vec, flag);
-        return;
-    }
-
-    {
-        f32 len_b = sqrtf(len_b_sq);
-        f32 cx, cy, cz;
-        f32 len_c_sq;
-        MtxF ortho;
-
-        bx /= len_b;
-        by /= len_b;
-        bz /= len_b;
-
-        cx = ay * bz - az * by;
-        cy = az * bx - ax * bz;
-        cz = ax * by - ay * bx;
-        len_c_sq = cx * cx + cy * cy + cz * cz;
-        if (len_c_sq < 1e-12f) {
-            Matrix_to_rotate_new(curm, vec, flag);
-            return;
-        }
-
-        {
-            f32 len_c = sqrtf(len_c_sq);
-
-            cx /= len_c;
-            cy /= len_c;
-            cz /= len_c;
-        }
-
-        /* Keep third axis in the same half-space as the original scaled column (avoids 180° flips when turning). */
-        {
-            f32 align = cx * curm->xz + cy * curm->yz + cz * curm->zz;
-
-            if (align < 0.0f) {
-                cx = -cx;
-                cy = -cy;
-                cz = -cz;
-            }
-        }
-
-        ortho.xx = ax;
-        ortho.yx = ay;
-        ortho.zx = az;
-        ortho.xy = bx;
-        ortho.yy = by;
-        ortho.zy = bz;
-        ortho.xz = cx;
-        ortho.yz = cy;
-        ortho.zz = cz;
-        ortho.wx = ortho.wy = ortho.wz = ortho.xw = ortho.yw = ortho.zw = 0.0f;
-        ortho.ww = 1.0f;
-        Matrix_to_rotate_new(&ortho, vec, flag);
-    }
-}
 #endif
 
 static int aNPC_check_mask_cat_type(ACTOR* actorx) {
@@ -142,11 +55,7 @@ static void aNPC_set_chn_base(GAME* game, NPC_ACTOR* nactorx, s_xyz* rot_p, xyz_
 static void aNPC_set_head_angl(GAME* game, NPC_ACTOR* nactorx, s_xyz* rot_p, xyz_t* trans_p) {
     s_xyz world_rot;
 
-#ifdef TARGET_PC
-    aNPC_matrix_to_rotate_for_head(get_Matrix_now(), &world_rot, MTX_LOAD);
-#else
     Matrix_to_rotate_new(get_Matrix_now(), &world_rot, MTX_LOAD);
-#endif
     aNPC_search_eye_target(nactorx, (GAME_PLAY*)game, &world_rot, rot_p);
     rot_p->x = nactorx->head.angle_y;
     rot_p->y = nactorx->head.angle_x;
