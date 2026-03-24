@@ -430,7 +430,7 @@ static void aUKI_set_spd_relations_in_water(ACTOR* actorx, GAME* game) {
     } else {
         if (uki->proc == 4) {
             flow_angle = aUKI_Get_flow_angle(actorx);
-            idx = ABS((s16)(actorx->world.angle.y - flow_angle)) > DEG2SHORT_ANGLE2(90.0f);
+            idx = ABS(mLib_AngleDiffShortest(actorx->world.angle.y, flow_angle)) > DEG2SHORT_ANGLE2(90.0f);
 
             chase_angle(&actorx->world.angle.y, flow_angle, angl_add_table[idx]);
             actorx->shape_info.rotation.y = actorx->world.angle.y;

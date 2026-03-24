@@ -9,6 +9,7 @@
 #include "m_player_lib.h"
 #include "sys_matrix.h"
 #include "m_actor_shadow.h"
+#include "m_lib.h"
 
 enum {
     aUKI_PROC_CARRY,

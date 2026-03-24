@@ -1,6 +1,7 @@
 #include "ac_snowman.h"
 
 #include "m_common_data.h"
+#include "m_lib.h"
 #include "m_player_lib.h"
 #include "m_rcp.h"
 #include "sys_matrix.h"
@@ -759,7 +760,7 @@ static void aSMAN_set_speed_relations_swim(ACTOR* actorx) {
     mCoBG_GetWaterFlow(&flow, actorx->bg_collision_check.result.unit_attribute);
     flow_angle = atans_table(flow.z, flow.x);
     chase_angle(&actorx->world.angle.y, flow_angle,
-                angl_add_table[ABS(DIFF_SHORT_ANGLE(actorx->world.angle.y, flow_angle)) > DEG2SHORT_ANGLE2(90.0f)]);
+                angl_add_table[ABS(mLib_AngleDiffShortest(actorx->world.angle.y, flow_angle)) > DEG2SHORT_ANGLE2(90.0f)]);
     if (actorx->world.position.y < water_height) {
         actorx->max_velocity_y = 1.0f;
     } else {
