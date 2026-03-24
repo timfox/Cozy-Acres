@@ -1,6 +1,6 @@
 #ifdef TARGET_PC
-/* Valid RAM for ANIME_2_TXT_SEG when face bank isn't ready (avoids stale segment 9). */
-static u8 s_pc_player_mouth_segment_fallback[0x100] __attribute__((aligned(32)));
+/* Valid RAM for ANIME_1/ANIME_2 when face bank isn't ready (avoids stale segment 8/9). */
+static u8 s_pc_player_face_segment_fallback[0x100] __attribute__((aligned(32)));
 #endif
 
 static void Player_actor_draw_Before_head(ACTOR* actorx, GAME* game, cKF_SkeletonInfo_R_c* kf, Gfx** gfx_pp, u8* flag,
@@ -201,12 +201,28 @@ static void Player_actor_draw_Normal(ACTOR* actorx, GAME* game) {
     eye_tex_p = Player_actor_Get_eye_tex_p(actorx);
     mouth_tex_p = Player_actor_Get_mouth_tex_p(actorx);
 #ifdef TARGET_PC
-    if (mouth_tex_p == NULL) {
+    {
         u8* face = mPlib_get_player_face_p(game);
-        if (face != NULL) {
-            mouth_tex_p = face + (mPlayer_EYE_TEX_NUM * 0x100);
-        } else {
-            mouth_tex_p = s_pc_player_mouth_segment_fallback;
+
+        if (eye_tex_p == NULL && face != NULL) {
+            int ei = player->eye_tex_idx;
+            if (ei < 0 || ei >= mPlayer_EYE_TEX_NUM) {
+                ei = 0;
+            }
+            eye_tex_p = face + ei * 0x100;
+        }
+        if (mouth_tex_p == NULL && face != NULL) {
+            int mi = player->mouth_tex_idx;
+            if (mi < 0 || mi >= mPlayer_MOUTH_TEX_NUM) {
+                mi = 0;
+            }
+            mouth_tex_p = face + (mPlayer_EYE_TEX_NUM * 0x100) + mi * 0x100;
+        }
+        if (eye_tex_p == NULL) {
+            eye_tex_p = s_pc_player_face_segment_fallback;
+        }
+        if (mouth_tex_p == NULL) {
+            mouth_tex_p = s_pc_player_face_segment_fallback;
         }
     }
 #endif

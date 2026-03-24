@@ -1,5 +1,10 @@
 //
 
+#ifdef TARGET_PC
+/* Valid RAM for ANIME_1/2 when a table slot is NULL (avoids stale segment 8/9 from previous draw). */
+static u8 s_pc_npc_anime12_fallback[0x100] __attribute__((aligned(32)));
+#endif
+
 static int aNPC_check_mask_cat_type(ACTOR* actorx) {
     NPC_ACTOR* nactorx = (NPC_ACTOR*)actorx;
     int ret = aNPC_MASK_CAT_TYPE_NONE;
@@ -225,8 +230,22 @@ static void aNPC_actor_draw_sub(ACTOR* actorx, GAME* game) {
 
     if (mtx != NULL) {
         aNPC_draw_tex_data_c* draw_tex_p = &nactorx->draw.draw_tex_data;
+#ifdef TARGET_PC
+        int eye_i = (int)nactorx->draw.tex_anim[aNPC_TEX_ANIM_EYE].pattern;
+        int mouth_i = (int)nactorx->draw.tex_anim[aNPC_TEX_ANIM_MOUTH].pattern;
+
+        if (eye_i < 0 || eye_i >= aNPC_EYE_TEX_NUM) {
+            eye_i = 0;
+        }
+        if (mouth_i < 0 || mouth_i >= aNPC_MOUTH_TEX_NUM) {
+            mouth_i = 0;
+        }
+        u8* eye_tex_p = draw_tex_p->eye_texture[eye_i];
+        u8* mouth_tex_p = draw_tex_p->mouth_texture[mouth_i];
+#else
         u8* eye_tex_p = draw_tex_p->eye_texture[nactorx->draw.tex_anim[aNPC_TEX_ANIM_EYE].pattern];
         u8* mouth_tex_p = draw_tex_p->mouth_texture[nactorx->draw.tex_anim[aNPC_TEX_ANIM_MOUTH].pattern];
+#endif
         Gfx* gfx; // manually split out so we can handle wisp which uses XLU and others which use OPA
         int xlu;
 
@@ -265,6 +284,22 @@ static void aNPC_actor_draw_sub(ACTOR* actorx, GAME* game) {
             gSPSegment(gfx++, ANIME_1_TXT_SEG, mask_cat->design.design.data);
             gDPLoadTLUT_Dolphin(gfx++, 13, 16, 1, mNW_PaletteIdx2Palette(mask_cat->palette_no));
         } else {
+#ifdef TARGET_PC
+            if (eye_tex_p == NULL) {
+                eye_tex_p = draw_tex_p->eye_texture[0];
+            }
+            if (mouth_tex_p == NULL) {
+                mouth_tex_p = draw_tex_p->mouth_texture[0];
+            }
+            if (eye_tex_p == NULL) {
+                eye_tex_p = s_pc_npc_anime12_fallback;
+            }
+            if (mouth_tex_p == NULL) {
+                mouth_tex_p = s_pc_npc_anime12_fallback;
+            }
+            gSPSegment(gfx++, ANIME_1_TXT_SEG, eye_tex_p);
+            gSPSegment(gfx++, ANIME_2_TXT_SEG, mouth_tex_p);
+#else
             if (eye_tex_p != NULL) {
                 gSPSegment(gfx++, ANIME_1_TXT_SEG, eye_tex_p);
             }
@@ -272,6 +307,7 @@ static void aNPC_actor_draw_sub(ACTOR* actorx, GAME* game) {
             if (mouth_tex_p != NULL) {
                 gSPSegment(gfx++, ANIME_2_TXT_SEG, mouth_tex_p);
             }
+#endif
         }
 
         gSPSegment(gfx++, ANIME_4_TXT_SEG, draw_tex_p->texture);

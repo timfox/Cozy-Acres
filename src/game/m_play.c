@@ -685,17 +685,8 @@ static int makeBumpTexture(GAME_PLAY* play, GRAPH* graph1, GRAPH* graph2) {
         gSPDisplayList(NEXT_OVERLAY_DISP, polydisp);
 
 #ifdef TARGET_PC
-        /* Only toggle widescreen stretch when something actually draws in this overlay.
-         * Unconditional STRETCH/HORPLUS every frame could leave projection/viewport logic
-         * briefly inconsistent with Camera2/actors during scene transitions on PC. */
-        {
-            u32 fd = play->fade_color_value.rgba8888;
-            /* fd&0xFF was wrong (that's R); use any non-zero fade color or fbdemo alpha. */
-            int pc_ws_overlay = (play->fb_wipe_mode == WIPE_MODE_MOVE) ||
-                                (play->color_fade.color.a != 0) || (fd != 0u);
-            if (pc_ws_overlay) {
-                gDPNoOpTag(polydisp++, PC_NOOP_WIDESCREEN_STRETCH);
-            }
+        /* Stretch for overlay draws (and, on title, for the following actor pass — see below). */
+        gDPNoOpTag(polydisp++, PC_NOOP_WIDESCREEN_STRETCH);
 #endif
 
         if (play->fb_wipe_mode == WIPE_MODE_MOVE) {
@@ -716,9 +707,15 @@ static int makeBumpTexture(GAME_PLAY* play, GRAPH* graph1, GRAPH* graph2) {
         fbdemo_fade_draw(&play->color_fade, &polydisp);
         fade_rgba8888_draw(&polydisp, play->fade_color_value.rgba8888);
 #ifdef TARGET_PC
-            /* Always restore hor+ after this overlay pass so actors/Camera2 (title logo, etc.)
-             * never inherit stretch mode; STRETCH above remains conditional. */
-            gDPNoOpTag(polydisp++, PC_NOOP_WIDESCREEN_HORPLUS);
+        /* Normal play: restore hor+ before Camera2 / villagers so 3D matches pillarbox or hor+.
+         * Title scene / any title-demo phase: keep stretch through actor draw (logo, intro reels). */
+        {
+            int title_like = (mEv_CheckTitleDemo() != mEv_TITLEDEMO_NONE) || (play->scene_id == SCENE_TITLE_DEMO) ||
+                             (play->fb_fade_type == FADE_TYPE_SELECT) || (play->fb_fade_type == FADE_TYPE_SELECT_END);
+
+            if (!title_like) {
+                gDPNoOpTag(polydisp++, PC_NOOP_WIDESCREEN_HORPLUS);
+            }
         }
 #endif
 
