@@ -143,7 +143,17 @@ static void aNTT_actor_move(ACTOR *actorx, GAME *game) {
 
     CLIP(npc_clip)->move_proc(actorx, game);
     if (totakeke->npc_class.draw.animation_id == aNPC_ANIM_ENSOU_E1) {
-        totakeke->npc_class.draw.main_animation.keyframe.frame_control.mode = 1;
+#ifdef TARGET_PC
+        /* Repeating ensou every frame at 60Hz while the player waits on a
+         * continue prompt looks like an unintended spin; hold the pose. */
+        if (mMsg_Check_MainNormalContinue(mMsg_Get_base_window_p()) == TRUE) {
+            totakeke->npc_class.draw.main_animation.keyframe.frame_control.mode = cKF_FRAMECONTROL_STOP;
+        } else {
+            totakeke->npc_class.draw.main_animation.keyframe.frame_control.mode = cKF_FRAMECONTROL_REPEAT;
+        }
+#else
+        totakeke->npc_class.draw.main_animation.keyframe.frame_control.mode = cKF_FRAMECONTROL_REPEAT;
+#endif
     }
 }
 

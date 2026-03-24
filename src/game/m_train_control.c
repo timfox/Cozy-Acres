@@ -18,6 +18,14 @@
 #define mTRC_RTC_TIME_SECONDS(rtc_time) \
     (rtc_time->sec + (rtc_time->min + rtc_time->hour * mTM_MINUTES_IN_HOUR) * mTM_SECONDS_IN_MINUTE)
 
+#ifdef TARGET_PC
+/* Speed ramps use chase_f per frame; train position uses mActor_GetPhysicsDtScale() * speed.
+ * Scale rates the same way so acceleration matches integrated motion at ~60Hz. */
+#define mTRC_CHASE_STEP(step) ((step)*mActor_GetPhysicsDtScale())
+#else
+#define mTRC_CHASE_STEP(step) (step)
+#endif
+
 static void mTRC_SetMicPos(GAME_PLAY* play, xyz_t* mic_pos) {
     xyz_t pos;
     PLAYER_ACTOR* player = get_player_actor_withoutCheck(play);
@@ -315,7 +323,7 @@ static void mTRC_trainControl(GAME_PLAY* play, int state) {
         }
 
         case mTRC_ACTION_BEGIN_SLOWDOWN: {
-            chase_f(&speed, mTRC_SLOW_SPEED, mTRC_SLOW_RATE);
+            chase_f(&speed, mTRC_SLOW_SPEED, mTRC_CHASE_STEP(mTRC_SLOW_RATE));
             if (pos.x > 2165.0f) {
                 action = mTRC_ACTION_BEGIN_STOP;
                 speed = mTRC_SLOW_SPEED;
@@ -324,7 +332,7 @@ static void mTRC_trainControl(GAME_PLAY* play, int state) {
         }
 
         case mTRC_ACTION_BEGIN_STOP: {
-            chase_f(&speed, 0.0f, mTRC_STOP_RATE);
+            chase_f(&speed, 0.0f, mTRC_CHASE_STEP(mTRC_STOP_RATE));
             if (fabsf(speed) < 0.008f) {
                 signal = TRUE;
                 timer = 48;
@@ -374,7 +382,7 @@ static void mTRC_trainControl(GAME_PLAY* play, int state) {
         }
 
         case mTRC_ACTION_BEGIN_PULL_OUT: {
-            chase_f(&speed, mTRC_SLOW_SPEED, mTRC_START_RATE);
+            chase_f(&speed, mTRC_SLOW_SPEED, mTRC_CHASE_STEP(mTRC_START_RATE));
 
             if (timer == 0) {
                 action = mTRC_ACTION_SPEED_UP;
@@ -385,7 +393,7 @@ static void mTRC_trainControl(GAME_PLAY* play, int state) {
         }
 
         case mTRC_ACTION_SPEED_UP: {
-            chase_f(&speed, mTRC_FAST_SPEED, mTRC_SPEEDUP_RATE);
+            chase_f(&speed, mTRC_FAST_SPEED, mTRC_CHASE_STEP(mTRC_SPEEDUP_RATE));
             if (pos.x > 4400.0f) {
                 start_timer = mTRC_get_depart_time();
                 action = mTRC_ACTION_NONE;

@@ -268,6 +268,17 @@ void pc_platform_init(void) {
     }
 
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
+#if defined(__linux__)
+    if (g_pc_settings.vsync == 1) {
+        int actual = SDL_GL_GetSwapInterval();
+        if (actual < 1) {
+            fprintf(stderr,
+                    "[PC/Linux] vsync=1 was set but SDL_GL_GetSwapInterval() reports %d. "
+                    "Fades and scrolling may tear; try another session type (Wayland vs X11) or driver.\n",
+                    actual);
+        }
+    }
+#endif
 
     pc_platform_update_window_size();
 

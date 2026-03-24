@@ -830,6 +830,17 @@ static void Game_play_draw(GAME_PLAY* play) {
     DisplayList_initialize(graph, fill_r, fill_g, fill_b, &play->game);
     PC_DIAG(3, "Game_play_draw: DL_init done\n");
 
+#ifdef TARGET_PC
+    /* Widescreen noop in makeBumpTexture runs after setupViewMatrix; without an
+     * early tag, title/copyright/logo draws use hor+ projection and can vanish or
+     * land in the wrong aspect band on PC. */
+    if (play->scene_id == SCENE_TITLE_DEMO || mEv_CheckTitleDemo() != mEv_TITLEDEMO_NONE) {
+        OPEN_DISP(graph);
+        gDPNoOpTag(NEXT_POLY_OPA_DISP, PC_NOOP_WIDESCREEN_STRETCH);
+        CLOSE_DISP(graph);
+    }
+#endif
+
     if ((GETREG(HREG, 80) != 10) || (GETREG(HREG, 82) != 0)) {
         setupFog(play, graph);
         PC_DIAG(3, "Game_play_draw: fog done\n");

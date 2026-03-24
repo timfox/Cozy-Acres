@@ -201,6 +201,10 @@ void pc_gx_texture_init(void) {
     tex_cache_hits = 0;
     tex_cache_misses = 0;
     (void)pc_gx_tlut_force_be();
+    /* Default GL_UNPACK_ALIGNMENT is 4; odd-width GC formats decoded to RGBA need byte alignment.
+     * Some Linux/Mesa paths are stricter than others about row padding. */
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
 }
 
 void pc_gx_texture_shutdown(void) {
@@ -661,10 +665,13 @@ void GXLoadTexObj(void* obj, u32 id) {
     }
 
 #ifdef PC_ENHANCEMENTS
-    /* EFB capture bypass: use full-res FBO texture instead of re-decoding */
+    /* EFB capture bypass: use full-res FBO texture instead of re-decoding.
+     * Only for large textures (actual framebuffer copies). Small CI sheets
+     * (NPC eyes/mouths) must never hit this — a false pointer match would bind
+     * a full-screen RGBA capture and corrupt facial features. */
     {
         GLuint efb_tex = pc_gx_efb_capture_find(o[TEXOBJ_IMAGE_PTR]);
-        if (efb_tex) {
+        if (efb_tex && (unsigned)(width * height) >= 20000u) {
             glBindTexture(GL_TEXTURE_2D, efb_tex);
             GLenum gl_filter = filter_mode ? GL_LINEAR : GL_NEAREST;
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
@@ -683,9 +690,20 @@ void GXLoadTexObj(void* obj, u32 id) {
     /* detect when emu64 reuses the same buffer with different data */
     u32 hash = tex_content_hash(image_ptr, width, height, format);
 
+#ifdef PC_ENHANCEMENTS
+    /* CI eyes/mouths are tiny, animate in-RAM, and often share TLUT tricks; stale
+     * cache hits still show up as missing or garbled mouths on villagers. */
+    int bypass_small_ci_cache =
+        (format == GX_TF_C4 || format == GX_TF_C8) && width <= 64 && height <= 64;
+#else
+    int bypass_small_ci_cache = 0;
+#endif
+
     /* cache lookup */
-    TexCacheEntry* cached = tex_cache_find(o[TEXOBJ_IMAGE_PTR], width, height, format, tlut_key,
-                                           tlut_ptr_key, tlut_hash_key, hash);
+    TexCacheEntry* cached = bypass_small_ci_cache
+                               ? NULL
+                               : tex_cache_find(o[TEXOBJ_IMAGE_PTR], width, height, format, tlut_key,
+                                                tlut_ptr_key, tlut_hash_key, hash);
     if (cached) {
         tex_cache_hits++;
         GLuint tex = cached->gl_tex;

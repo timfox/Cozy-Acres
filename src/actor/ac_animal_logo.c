@@ -1041,6 +1041,8 @@ static void aAL_actor_draw(ACTOR* actor, GAME* game) {
       case aAL_ACTION_FADE_OUT_START:
       case aAL_ACTION_OUT:
 #ifdef PC_ENHANCEMENTS
+        /* "Start Game" / "Options" are drawn in aAL_pc_menu_draw; do not also draw
+         * the bitmap Press Start tiles (same screen area → overlap). */
         aAL_pc_menu_draw(logo_actor, game);
 #else
         aAL_press_start_draw(logo_actor, graph);

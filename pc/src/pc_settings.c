@@ -9,7 +9,10 @@ PCSettings g_pc_settings = {
     .vsync         = 0,
     .msaa          = 4,
     .preload_textures = 0,
-    .physics_native_60hz = 1,
+    /* Default 0: matches console integration (Actor_position_* uses 0.5 step).
+     * physics_native_60hz=1 is snappier but many actors still assume 0.5-scale
+     * motion, which reads as jitter, overshoot, or odd spins. */
+    .physics_native_60hz = 0,
 };
 
 static const char* SETTINGS_FILE = "settings.ini";
