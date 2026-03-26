@@ -609,12 +609,10 @@ extern void mFont_CulcOrthoMatrix(Mtx* m) {
 
 extern void mFont_SetMatrix(GRAPH* graph, int mode) {
   static Mtx mtx_projection;
-  static int first = TRUE;
 
-  if (first) {
-    mFont_CulcOrthoMatrix(&mtx_projection);
-    first = FALSE;
-  }
+  /* Recompute every call: PC emu64 + GXSetProjection apply per-frame widescreen correction to ortho;
+   * a one-shot matrix could desync from viewport/aspect if those ever change. Cost is negligible. */
+  mFont_CulcOrthoMatrix(&mtx_projection);
 
   Matrix_push();
   Matrix_put(&MtxF_clear);

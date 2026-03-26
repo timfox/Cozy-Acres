@@ -1,5 +1,6 @@
 #include "m_choice.h"
 
+#include "main.h"
 #include "audio.h"
 #include "jsyswrap.h"
 #include "libultra/libultra.h"

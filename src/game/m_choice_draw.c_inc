@@ -1,8 +1,8 @@
 static void mChoice_SetMatrix(mChoice_c* choice, GAME* game, int type) {
     GRAPH* graph = game->graph;
     f32 scale = choice->scale;
-    f32 x = (choice->center_x - 160.0f) * 16.0f;
-    f32 y = (-choice->center_y + 120.0f) * 16.0f;
+    f32 x = (choice->center_x - SCREEN_WIDTH_F * 0.5f) * 16.0f;
+    f32 y = (-choice->center_y + SCREEN_HEIGHT_F * 0.5f) * 16.0f;
 
     Matrix_push();
     Matrix_translate(x, y, 0.0f, MTX_MULT);

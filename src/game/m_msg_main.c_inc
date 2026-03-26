@@ -391,7 +391,7 @@ static void mMsg_init(GAME* game) {
     mMsg_window.msg_no = 0;
     mMsg_window._008 = 0;
     mMsg_window.msg_data = &mMsg_data;
-    mMsg_window.center_x = 160.0;
+    mMsg_window.center_x = SCREEN_WIDTH_F * 0.5f;
     mMsg_window.center_y = 185.4;
     mMsg_window.width = 245.0;
     mMsg_window.height = 96.0;
