@@ -7,6 +7,7 @@
 #include "pc_keybindings.h"
 #include "pc_assets.h"
 #include "pc_disc.h"
+#include "pc_http.h"
 
 #if defined(__linux__)
 #include <dlfcn.h>
@@ -23,6 +24,7 @@ SDL_Window*   g_pc_window = NULL;
 SDL_GLContext  g_pc_gl_context = NULL;
 int           g_pc_running = 1;
 int           g_pc_no_framelimit = 0;
+static int    pc_cli_uncapped_framerate = 0;
 int           g_pc_verbose = 0;
 int           g_pc_time_override = -1; /* -1=system clock, 0-23=override hour */
 int           g_pc_window_w = PC_SCREEN_WIDTH;
@@ -169,6 +171,20 @@ static void pc_linux_try_nvidia_glx_vendor(void) {
 }
 #endif
 
+#if defined(__linux__)
+static void pc_linux_print_video_hints(void) {
+    fprintf(stderr,
+            "[PC] If video fails: export SDL_VIDEODRIVER=x11 or run scripts/run-pc-linux.sh "
+            "(32-bit SDL on Wayland is often unreliable).\n");
+}
+
+static void pc_linux_print_gl_hints(void) {
+    fprintf(stderr,
+            "[PC] OpenGL 3.3 Core required. Update Mesa or NVIDIA drivers; i386 hybrid: see "
+            "pc_linux_try_nvidia_glx_vendor / __GLX_VENDOR_LIBRARY_NAME in pc_main.c.\n");
+}
+#endif
+
 void pc_platform_init(void) {
 #ifdef _WIN32
     SetProcessDPIAware();
@@ -194,10 +210,27 @@ void pc_platform_init(void) {
     }
     pc_linux_preload_llvm_rtld_global();
 #endif
+    /* PulseAudio/PipeWire and some WMs use this for stream grouping / app id. */
+#ifdef SDL_HINT_APP_NAME
+    SDL_SetHint(SDL_HINT_APP_NAME, PC_WINDOW_TITLE);
+#endif
+#ifdef SDL_HINT_AUDIO_DEVICE_APP_NAME
+    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_APP_NAME, PC_WINDOW_TITLE);
+#endif
+#ifdef SDL_HINT_VIDEO_WAYLAND_APP_ID
+    /* Helps compositors match the window to StartupWMClass in the .desktop file. */
+    SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_APP_ID, "AnimalCrossing");
+#endif
+#ifdef SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS
+    SDL_SetHintWithPriority(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0", SDL_HINT_NORMAL);
+#endif
     /* VIDEO first on all platforms: defers gamepad/audio/timer init until after GL context
      * (matches Linux stability path; harmless on Windows). */
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+#if defined(__linux__)
+        pc_linux_print_video_hints();
+#endif
         exit(1);
     }
 
@@ -239,6 +272,9 @@ void pc_platform_init(void) {
     }
     if (!g_pc_window) {
         fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+#if defined(__linux__)
+        pc_linux_print_video_hints();
+#endif
         SDL_Quit();
         exit(1);
     }
@@ -246,13 +282,19 @@ void pc_platform_init(void) {
     g_pc_gl_context = SDL_GL_CreateContext(g_pc_window);
     if (!g_pc_gl_context) {
         fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+#if defined(__linux__)
+        pc_linux_print_video_hints();
+#endif
         SDL_DestroyWindow(g_pc_window);
         SDL_Quit();
         exit(1);
     }
 
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
-        fprintf(stderr, "gladLoadGL failed\n");
+        fprintf(stderr, "gladLoadGL failed (OpenGL loader could not resolve 3.3 Core entry points)\n");
+#if defined(__linux__)
+        pc_linux_print_gl_hints();
+#endif
         SDL_GL_DeleteContext(g_pc_gl_context);
         SDL_DestroyWindow(g_pc_window);
         SDL_Quit();
@@ -261,6 +303,9 @@ void pc_platform_init(void) {
 
     if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
         fprintf(stderr, "SDL_InitSubSystem failed: %s\n", SDL_GetError());
+#if defined(__linux__)
+        pc_linux_print_video_hints();
+#endif
         SDL_GL_DeleteContext(g_pc_gl_context);
         SDL_DestroyWindow(g_pc_window);
         SDL_Quit();
@@ -300,11 +345,14 @@ void pc_platform_init(void) {
         pc_texture_pack_preload_all();
     }
 #endif
+
+    pc_http_init();
 }
 
 extern void PADCleanup(void);
 
 void pc_platform_shutdown(void) {
+    pc_http_shutdown();
     pc_audio_shutdown();
     pc_audio_mq_shutdown();
     PADCleanup();
@@ -372,6 +420,7 @@ int pc_platform_poll_events(void) {
                 }
                 if (event.key.keysym.sym == SDLK_F3 && !event.key.repeat) {
                     g_pc_no_framelimit ^= 1;
+                    g_pc_settings.framerate_cap = g_pc_no_framelimit ? 0 : 1;
                     printf("[PC] Frame limiter %s\n", g_pc_no_framelimit ? "OFF" : "ON");
                 }
                 break;
@@ -416,9 +465,12 @@ int main(int argc, char* argv[]) {
             printf("  --model-viewer [N]  Launch model viewer (optional start index)\n");
             printf("  --time HOUR         Override in-game hour (0-23)\n");
             printf("  --help, -h          Show this help message\n");
+            printf("\nEnvironment (selection):\n");
+            printf("  PC_PORTABLE_CONFIG=1  settings.ini / keybindings.ini next to exe, not XDG/AppData\n");
+            printf("  PC_SDL_USE_WAYLAND=1  opt into Wayland (default on Linux is X11 for stability)\n");
             return 0;
         } else if (strcmp(argv[i], "--no-framelimit") == 0) {
-            g_pc_no_framelimit = 1;
+            pc_cli_uncapped_framerate = 1;
         } else if (strcmp(argv[i], "--verbose") == 0 || strcmp(argv[i], "-v") == 0) {
             g_pc_verbose = 1;
         } else if (strcmp(argv[i], "--model-viewer") == 0) {
@@ -482,6 +534,12 @@ int main(int argc, char* argv[]) {
 
     SDL_SetMainReady();
     pc_settings_load();
+    if (!pc_cli_uncapped_framerate)
+        g_pc_no_framelimit = !g_pc_settings.framerate_cap;
+    else {
+        g_pc_no_framelimit = 1;
+        g_pc_settings.framerate_cap = 0;
+    }
     pc_keybindings_load();
     pc_platform_init();
     /* Disc search uses . / orig / rom relative to cwd. Prefer cwd when it already has game data

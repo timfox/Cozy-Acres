@@ -23,6 +23,7 @@
 #include "m_flashrom.h"
 #ifdef PC_ENHANCEMENTS
 #include "pc_settings.h"
+#include "pc_platform.h"
 #include "main.h"
 #include <stdio.h>
 #endif
@@ -358,12 +359,12 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
       return;
     }
 
-    /* Up/down navigation within options (5 items: 0=res, 1=fs, 2=vsync, 3=msaa, 4=textures) */
+    /* Up/down: 7 rows — res, display, vsync, msaa, textures, physics, frame cap */
     if (actor->pc_cursor_cooldown == 0) {
       if (stick_y > 30 || (on_btn & BUTTON_DUP)) {
         if (actor->pc_options_sel > 0) { actor->pc_options_sel--; actor->pc_cursor_cooldown = 8; }
       } else if (stick_y < -30 || (on_btn & BUTTON_DDOWN)) {
-        if (actor->pc_options_sel < 4) { actor->pc_options_sel++; actor->pc_cursor_cooldown = 8; }
+        if (actor->pc_options_sel < 6) { actor->pc_options_sel++; actor->pc_cursor_cooldown = 8; }
       }
 
       /* Left/right to change values */
@@ -394,6 +395,13 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
           case 4: { /* Textures cycle up: 0→1→2 */
             if (g_pc_settings.preload_textures < 2) g_pc_settings.preload_textures++;
           } break;
+          case 5: /* Physics: GC half-step vs full 60Hz step */
+            g_pc_settings.physics_native_60hz = !g_pc_settings.physics_native_60hz;
+            break;
+          case 6: /* Framerate cap */
+            g_pc_settings.framerate_cap = !g_pc_settings.framerate_cap;
+            g_pc_no_framelimit = !g_pc_settings.framerate_cap;
+            break;
         }
       } else if (stick_x < -30 || (on_btn & BUTTON_DLEFT)) {
         changed = 1; actor->pc_cursor_cooldown = 8;
@@ -416,6 +424,13 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
           case 4: { /* Textures cycle down: 2→1→0 */
             if (g_pc_settings.preload_textures > 0) g_pc_settings.preload_textures--;
           } break;
+          case 5:
+            g_pc_settings.physics_native_60hz = !g_pc_settings.physics_native_60hz;
+            break;
+          case 6:
+            g_pc_settings.framerate_cap = !g_pc_settings.framerate_cap;
+            g_pc_no_framelimit = !g_pc_settings.framerate_cap;
+            break;
         }
       }
       } /* end resolution presets block */
@@ -805,7 +820,7 @@ static void aAL_title_draw(GAME* game, ANIMAL_LOGO_ACTOR* actor) {
 #ifdef PC_ENHANCEMENTS
 static void aAL_pc_options_draw(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
   GRAPH* graph = game->graph;
-  char buf[48];
+  char buf[64];
   int len;
   f32 x = 80.0f;
   f32 y = 68.0f;
@@ -814,7 +829,7 @@ static void aAL_pc_options_draw(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
   /* Semi-transparent background behind options panel */
   {
     Gfx* gfx;
-    int x0 = 45, y0_bg = 58, x1 = 295, y1_bg = 196;
+    int x0 = 45, y0_bg = 58, x1 = 295, y1_bg = 248;
     OPEN_DISP(graph);
     gfx = NOW_FONT_DISP;
     gDPPipeSync(gfx++);
@@ -918,6 +933,37 @@ static void aAL_pc_options_draw(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
   }
   {
     static u8 lbl[] = { 'T', 'e', 'x', 't', 'u', 'r', 'e', 's' };
+    mFont_SetLineStrings(game, lbl, sizeof(lbl), x, y,
+      sel == item ? 255 : 180, sel == item ? 255 : 180, sel == item ? 255 : 180,
+      sel == item ? 255 : 160, FALSE, TRUE, 1.0f, 1.0f, mFont_MODE_FONT);
+  }
+  mFont_SetLineStrings(game, (u8*)buf, len, 180.0f, y,
+    sel == item ? 255 : 180, sel == item ? 255 : 180, sel == item ? 255 : 180,
+    sel == item ? 255 : 160, FALSE, TRUE, 1.0f, 1.0f, mFont_MODE_FONT);
+  if (sel == item) mFont_SetLineStrings(game, str_arrow, 1, x - 12.0f, y, 255, 255, 255, 255, FALSE, TRUE, 1.0f, 1.0f, mFont_MODE_FONT);
+  item++; y += line_h;
+
+  /* Physics pacing (half-step vs full 60Hz) */
+  {
+    const char* ph = g_pc_settings.physics_native_60hz ? "< PC 60Hz >" : "< GC Style >";
+    len = sprintf(buf, "%s", ph);
+  }
+  {
+    static u8 lbl[] = { 'P', 'h', 'y', 's', 'i', 'c', 's' };
+    mFont_SetLineStrings(game, lbl, sizeof(lbl), x, y,
+      sel == item ? 255 : 180, sel == item ? 255 : 180, sel == item ? 255 : 180,
+      sel == item ? 255 : 160, FALSE, TRUE, 1.0f, 1.0f, mFont_MODE_FONT);
+  }
+  mFont_SetLineStrings(game, (u8*)buf, len, 180.0f, y,
+    sel == item ? 255 : 180, sel == item ? 255 : 180, sel == item ? 255 : 180,
+    sel == item ? 255 : 160, FALSE, TRUE, 1.0f, 1.0f, mFont_MODE_FONT);
+  if (sel == item) mFont_SetLineStrings(game, str_arrow, 1, x - 12.0f, y, 255, 255, 255, 255, FALSE, TRUE, 1.0f, 1.0f, mFont_MODE_FONT);
+  item++; y += line_h;
+
+  /* Framerate cap */
+  len = sprintf(buf, "< %s >", g_pc_settings.framerate_cap ? "60 FPS" : "Uncapped");
+  {
+    static u8 lbl[] = { 'F', 'P', 'S', ' ', 'C', 'a', 'p' };
     mFont_SetLineStrings(game, lbl, sizeof(lbl), x, y,
       sel == item ? 255 : 180, sel == item ? 255 : 180, sel == item ? 255 : 180,
       sel == item ? 255 : 160, FALSE, TRUE, 1.0f, 1.0f, mFont_MODE_FONT);

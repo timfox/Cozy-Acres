@@ -7,14 +7,14 @@
 #ifdef __cplusplus
 class JSUIosBase {
   public:
-    inline JSUIosBase() : mState(GOOD) {
+    inline JSUIosBase() : mState(JSU_IO_GOOD) {
     }
 
     virtual ~JSUIosBase() {
     }
 
     bool isGood() {
-        return !this->mState;
+        return this->mState == JSU_IO_GOOD;
     }
     void clrState(EIoState ioState) {
         this->mState &= ~ioState;

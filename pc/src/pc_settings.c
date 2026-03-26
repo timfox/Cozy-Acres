@@ -1,6 +1,10 @@
 /* pc_settings.c - runtime settings loaded from settings.ini */
 #include "pc_settings.h"
 #include "pc_platform.h"
+#include "pc_paths.h"
+
+#include <stdio.h>
+#include <string.h>
 
 PCSettings g_pc_settings = {
     .window_width  = PC_SCREEN_WIDTH,
@@ -13,9 +17,10 @@ PCSettings g_pc_settings = {
      * physics_native_60hz=1 is snappier but many actors still assume 0.5-scale
      * motion, which reads as jitter, overshoot, or odd spins. */
     .physics_native_60hz = 0,
+    .framerate_cap = 1,
 };
 
-static const char* SETTINGS_FILE = "settings.ini";
+static char g_settings_ini_path[512];
 
 static const char* DEFAULT_SETTINGS =
     "[Graphics]\n"
@@ -39,7 +44,11 @@ static const char* DEFAULT_SETTINGS =
     "[Gameplay]\n"
     "# 0 = original pacing (half physics step per frame at ~60Hz)\n"
     "# 1 = full physics step every frame (snappier; ~2x movement vs 0)\n"
-    "physics_native_60hz = 0\n";
+    "physics_native_60hz = 0\n"
+    "\n"
+    "[Performance]\n"
+    "# 1 = limit framerate (~60fps), 0 = uncapped\n"
+    "framerate_cap = 1\n";
 
 static const char* skip_ws(const char* s) {
     while (*s == ' ' || *s == '\t') s++;
@@ -56,11 +65,12 @@ static void trim_end(char* s) {
 
 static void apply_setting(const char* key, const char* value) {
     int val = atoi(value);
+    enum { WIN_W_MAX = 7680, WIN_H_MAX = 4320 };
 
     if (strcmp(key, "window_width") == 0) {
-        if (val >= 640) g_pc_settings.window_width = val;
+        if (val >= 640 && val <= WIN_W_MAX) g_pc_settings.window_width = val;
     } else if (strcmp(key, "window_height") == 0) {
-        if (val >= 480) g_pc_settings.window_height = val;
+        if (val >= 480 && val <= WIN_H_MAX) g_pc_settings.window_height = val;
     } else if (strcmp(key, "fullscreen") == 0) {
         if (val >= 0 && val <= 2) g_pc_settings.fullscreen = val;
     } else if (strcmp(key, "vsync") == 0) {
@@ -72,6 +82,8 @@ static void apply_setting(const char* key, const char* value) {
         if (val >= 0 && val <= 2) g_pc_settings.preload_textures = val;
     } else if (strcmp(key, "physics_native_60hz") == 0) {
         if (val == 0 || val == 1) g_pc_settings.physics_native_60hz = val;
+    } else if (strcmp(key, "framerate_cap") == 0) {
+        if (val == 0 || val == 1) g_pc_settings.framerate_cap = val;
     }
 }
 
@@ -80,13 +92,16 @@ static void write_defaults(const char* path) {
     if (f) {
         fputs(DEFAULT_SETTINGS, f);
         fclose(f);
+    } else {
+        fprintf(stderr, "[Settings] Cannot write default %s (check permissions)\n", path);
     }
 }
 
 void pc_settings_save(void) {
-    FILE* f = fopen(SETTINGS_FILE, "w");
+    const char* path = g_settings_ini_path[0] != '\0' ? g_settings_ini_path : "settings.ini";
+    FILE* f = fopen(path, "w");
     if (!f) {
-        printf("[Settings] Failed to write %s\n", SETTINGS_FILE);
+        printf("[Settings] Failed to write %s\n", path);
         return;
     }
     fprintf(f, "[Graphics]\n");
@@ -108,10 +123,15 @@ void pc_settings_save(void) {
     fprintf(f, "preload_textures = %d\n", g_pc_settings.preload_textures);
     fprintf(f, "\n");
     fprintf(f, "[Gameplay]\n");
-    fprintf(f, "# 1 = native (default), 0 = GameCube half-step pacing\n");
+    fprintf(f, "# 0 = GameCube-style half-step physics (default)\n");
+    fprintf(f, "# 1 = full step each frame (snappier; can mismatch actor logic)\n");
     fprintf(f, "physics_native_60hz = %d\n", g_pc_settings.physics_native_60hz);
+    fprintf(f, "\n");
+    fprintf(f, "[Performance]\n");
+    fprintf(f, "# 1 = cap ~60fps, 0 = uncapped\n");
+    fprintf(f, "framerate_cap = %d\n", g_pc_settings.framerate_cap);
     fclose(f);
-    printf("[Settings] Saved %s\n", SETTINGS_FILE);
+    printf("[Settings] Saved %s\n", path);
 }
 
 void pc_settings_apply(void) {
@@ -136,10 +156,19 @@ void pc_settings_apply(void) {
 }
 
 void pc_settings_load(void) {
-    FILE* f = fopen(SETTINGS_FILE, "r");
+    g_settings_ini_path[0] = '\0';
+
+    if (!pc_paths_find_config_file("settings.ini", g_settings_ini_path, sizeof(g_settings_ini_path))) {
+        pc_paths_default_config_file("settings.ini", g_settings_ini_path, sizeof(g_settings_ini_path));
+        write_defaults(g_settings_ini_path);
+        printf("[Settings] Created default %s\n", g_settings_ini_path);
+        return;
+    }
+
+    FILE* f = fopen(g_settings_ini_path, "r");
     if (!f) {
-        write_defaults(SETTINGS_FILE);
-        printf("[Settings] Created default %s\n", SETTINGS_FILE);
+        fprintf(stderr, "[Settings] Cannot open %s\n", g_settings_ini_path);
+        g_settings_ini_path[0] = '\0';
         return;
     }
 
@@ -163,8 +192,8 @@ void pc_settings_load(void) {
         }
     }
     fclose(f);
-    printf("[Settings] Loaded %s: %dx%d fullscreen=%d vsync=%d msaa=%d preload_textures=%d physics_native_60hz=%d\n",
-           SETTINGS_FILE, g_pc_settings.window_width, g_pc_settings.window_height,
+    printf("[Settings] Loaded %s: %dx%d fullscreen=%d vsync=%d msaa=%d preload=%d physics=%d framerate_cap=%d\n",
+           g_settings_ini_path, g_pc_settings.window_width, g_pc_settings.window_height,
            g_pc_settings.fullscreen, g_pc_settings.vsync, g_pc_settings.msaa,
-           g_pc_settings.preload_textures, g_pc_settings.physics_native_60hz);
+           g_pc_settings.preload_textures, g_pc_settings.physics_native_60hz, g_pc_settings.framerate_cap);
 }

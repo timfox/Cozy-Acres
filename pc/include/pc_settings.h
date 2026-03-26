@@ -15,6 +15,8 @@ typedef struct {
     /* 0 = GameCube-style (0.5x per frame at ~60Hz, default; stable actor motion).
      * 1 = full step per frame (snappier; set in settings.ini if desired). */
     int physics_native_60hz;
+    /* 1 = cap to ~60fps (default), 0 = uncapped (--no-framelimit / F3). */
+    int framerate_cap;
 } PCSettings;
 
 extern PCSettings g_pc_settings;

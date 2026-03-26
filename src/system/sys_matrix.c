@@ -691,40 +691,55 @@ void Matrix_reverse(MtxF* curm) {
     curm->yz = fp;
 }
 
+#ifdef TARGET_PC
+/* hypotf avoids loss of precision vs sqrtf(x*x+z*z); epsilon band avoids exact-s16 gimbal checks. */
+static int mtxf_pitch_at_gimbal_pole(s16 pitch_s16) {
+    enum { EPS = 320 }; /* ~1.75° in short-angle units */
+    s16 p90 = DEG2SHORT_ANGLE2(90.0f);
+    s16 pm90 = DEG2SHORT_ANGLE2(-90.0f);
+    return (ABS(mLib_AngleDiffShortest(pitch_s16, p90)) < EPS ||
+            ABS(mLib_AngleDiffShortest(pitch_s16, pm90)) < EPS);
+}
+
+static int mtxf_yaw_at_gimbal_pole(s16 yaw_s16) {
+    enum { EPS = 320 };
+    s16 p90 = DEG2SHORT_ANGLE2(90.0f);
+    s16 pm90 = DEG2SHORT_ANGLE2(-90.0f);
+    return (ABS(mLib_AngleDiffShortest(yaw_s16, p90)) < EPS ||
+            ABS(mLib_AngleDiffShortest(yaw_s16, pm90)) < EPS);
+}
+#endif
+
 void Matrix_to_rotate_new(MtxF* curm, s_xyz* vec, int flag) {
     f32 temp;
     f32 temp2;
     f32 temp3;
     f32 temp4;
-#ifdef TARGET_PC
-    f32 xz_plane_len;
-#endif
 
+#ifdef TARGET_PC
+    {
+        f32 xz_plane_len = hypotf(curm->xz, curm->zz);
+
+        if (xz_plane_len < 1e-6f) {
+            vec->x = (curm->yz < 0.0f) ? DEG2SHORT_ANGLE2(90.0f) : DEG2SHORT_ANGLE2(-90.0f);
+            vec->z = 0;
+            vec->y = RAD2SHORT_ANGLE2(fatan2(-curm->zx, curm->xx));
+        } else {
+            vec->x = RAD2SHORT_ANGLE2(fatan2(-curm->yz, xz_plane_len));
+        }
+    }
+#else
     temp = curm->xz;
     temp *= temp;
     temp += (curm->zz * curm->zz);
-#ifdef TARGET_PC
-    if (temp < 0.0f) {
-        temp = 0.0f;
-    }
-    xz_plane_len = sqrtf(temp);
-    /* Exact s16 compare for ±90° almost never hits; near-gimbal atan2(sqrt(~0)) flips euler branches one frame. */
-    if (xz_plane_len < 1e-6f) {
-        vec->x = (curm->yz < 0.0f) ? DEG2SHORT_ANGLE2(90.0f) : DEG2SHORT_ANGLE2(-90.0f);
-        vec->z = 0;
-        vec->y = RAD2SHORT_ANGLE2(fatan2(-curm->zx, curm->xx));
-    } else
+    vec->x = RAD2SHORT_ANGLE2(fatan2(-curm->yz, sqrtf(temp)));
 #endif
-    {
-        vec->x = RAD2SHORT_ANGLE2(fatan2(-curm->yz,
-#ifdef TARGET_PC
-                                          xz_plane_len));
-#else
-                                          sqrtf(temp)));
-#endif
-    }
 
+#ifdef TARGET_PC
+    if (mtxf_pitch_at_gimbal_pole(vec->x)) {
+#else
     if ((vec->x == DEG2SHORT_ANGLE2(90.0f)) || (vec->x == DEG2SHORT_ANGLE2(-90.0f))) {
+#endif
         vec->z = 0;
 
         vec->y = RAD2SHORT_ANGLE2(fatan2(-curm->zx, curm->xx));
@@ -773,34 +788,31 @@ void Matrix_to_rotate2_new(MtxF* curm, s_xyz* v, int flag) {
     f32 temp2;
     f32 temp3;
     f32 temp4;
-#ifdef TARGET_PC
-    f32 xy_plane_len;
-#endif
 
+#ifdef TARGET_PC
+    {
+        f32 xy_plane_len = hypotf(curm->xx, curm->yx);
+
+        if (xy_plane_len < 1e-6f) {
+            v->y = (curm->zx < 0.0f) ? DEG2SHORT_ANGLE2(90.0f) : DEG2SHORT_ANGLE2(-90.0f);
+            v->x = 0;
+            v->z = RAD2SHORT_ANGLE2(fatan2(-curm->xy, curm->yy));
+        } else {
+            v->y = RAD2SHORT_ANGLE2(fatan2(-curm->zx, xy_plane_len));
+        }
+    }
+#else
     temp = curm->xx;
     temp *= temp;
     temp += (curm->yx * curm->yx);
-#ifdef TARGET_PC
-    if (temp < 0.0f) {
-        temp = 0.0f;
-    }
-    xy_plane_len = sqrtf(temp);
-    if (xy_plane_len < 1e-6f) {
-        v->y = (curm->zx < 0.0f) ? DEG2SHORT_ANGLE2(90.0f) : DEG2SHORT_ANGLE2(-90.0f);
-        v->x = 0;
-        v->z = RAD2SHORT_ANGLE2(fatan2(-curm->xy, curm->yy));
-    } else
+    v->y = RAD2SHORT_ANGLE2(fatan2(-curm->zx, sqrtf(temp)));
 #endif
-    {
-        v->y = RAD2SHORT_ANGLE2(fatan2(-curm->zx,
-#ifdef TARGET_PC
-                                          xy_plane_len));
-#else
-                                          sqrtf(temp)));
-#endif
-    }
 
+#ifdef TARGET_PC
+    if (mtxf_yaw_at_gimbal_pole(v->y)) {
+#else
     if ((v->y == DEG2SHORT_ANGLE2(90.0f)) || (v->y == DEG2SHORT_ANGLE2(-90.0f))) {
+#endif
         v->x = 0;
         v->z = RAD2SHORT_ANGLE2(fatan2(-curm->xy, curm->yy));
     } else {

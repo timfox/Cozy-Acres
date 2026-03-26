@@ -90,7 +90,8 @@ apt-get install -y -qq --no-install-recommends \
     ninja-build \
     pkg-config \
     libsdl2-dev:i386 \
-    libgl1-mesa-dev:i386
+    libgl1-mesa-dev:i386 \
+    libcurl4-openssl-dev:i386
 echo "=== [cozy-pc docker] ./build_pc.sh ==="
 export PKG_CONFIG_LIBDIR=/usr/lib/i386-linux-gnu/pkgconfig
 export PKG_CONFIG_PATH=

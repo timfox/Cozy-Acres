@@ -41,7 +41,7 @@ apt-get update -qq
 apt-get install -y -qq \
   build-essential cmake ninja-build pkg-config \
   gcc-i686-linux-gnu g++-i686-linux-gnu \
-  libsdl2-dev:i386 libgl1-mesa-dev:i386
+  libsdl2-dev:i386 libgl1-mesa-dev:i386 libcurl4-openssl-dev:i386
 ./build_pc.sh
 if [ -d /src/pc/build32 ]; then
   chown -R "${COZY_BUILD_UID}:${COZY_BUILD_GID}" /src/pc/build32

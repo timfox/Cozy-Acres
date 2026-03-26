@@ -593,7 +593,20 @@ static void aNPC_tex_anm_ctrl_talk_seq(aNPC_tex_anim_c* tex_anim, int part_type)
 }
 
 static void aNPC_tex_anm_ctrl_fix_seq(NPC_ACTOR* nactorx, aNPC_tex_anim_c* tex_anim) {
-    tex_anim->pattern = tex_anim->fixed_pattern_seq[nactorx->draw.main_animation_frame - 1];
+    int f = nactorx->draw.main_animation_frame;
+    int idx = f - 1;
+    f32 max_f = nactorx->draw.main_animation.keyframe.frame_control.max_frames;
+
+    if (idx < 0) {
+        idx = 0;
+    }
+    if (max_f > 1.0f) {
+        int max_idx = (int)max_f - 1;
+        if (idx > max_idx) {
+            idx = max_idx;
+        }
+    }
+    tex_anim->pattern = tex_anim->fixed_pattern_seq[idx];
 }
 
 static void aNPC_tex_anm_ctrl(NPC_ACTOR* nactorx) {

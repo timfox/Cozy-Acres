@@ -180,9 +180,10 @@ build_linux() {
             echo "  sudo dpkg --add-architecture i386   # if needed"
             echo "  sudo apt update"
             echo "  sudo apt install gcc-multilib g++-multilib libsdl2-dev:i386 \\"
-            echo "                 libgl1-mesa-dev:i386 pkg-config"
+            echo "                 libgl1-mesa-dev:i386 libcurl4-openssl-dev:i386 pkg-config"
             echo ""
-            echo "Or: sudo apt install gcc-i686-linux-gnu g++-i686-linux-gnu libsdl2-dev:i386 libgl1-mesa-dev:i386"
+            echo "Or: sudo apt install gcc-i686-linux-gnu g++-i686-linux-gnu libsdl2-dev:i386 \\"
+            echo "                 libgl1-mesa-dev:i386 libcurl4-openssl-dev:i386"
         fi
         exit 1
     fi

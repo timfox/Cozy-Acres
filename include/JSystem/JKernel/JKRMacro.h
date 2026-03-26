@@ -1,4 +1,4 @@
-#ifndef JKRMARCO_H
+#ifndef JKRMACRO_H
 #define JKRMACRO_H
 
 #ifdef __cplusplus

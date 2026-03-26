@@ -73,6 +73,7 @@ COMMON_PKGS=(
   pkg-config
   libsdl2-dev:i386
   libgl1-mesa-dev:i386
+  libcurl4-openssl-dev:i386
 )
 
 sudo apt-get install -y "${COMMON_PKGS[@]}"
@@ -88,8 +89,8 @@ else
 fi
 
 if [ "$INSTALL_RUNTIME" = 1 ]; then
-    echo "Installing 32-bit runtime libraries (SDL2, OpenGL)..."
-    sudo apt-get install -y libsdl2-2.0-0:i386 libgl1:i386
+    echo "Installing 32-bit runtime libraries (SDL2, OpenGL, curl)..."
+    sudo apt-get install -y libsdl2-2.0-0:i386 libgl1:i386 libcurl4:i386
 fi
 
 echo "Dependencies installed. From the repo root run: ./build_pc.sh"

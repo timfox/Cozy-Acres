@@ -81,10 +81,9 @@ extern f32 m_lib_mod_f(f32 a, f32 m) {
  * @param size Number of bytes to copy.
  */
 extern void mem_copy(u8* dst, u8* src, size_t size) {
-    for (size; size != 0; size--) {
-        *dst = *src;
-        src++;
-        dst++;
+    while (size != 0) {
+        *dst++ = *src++;
+        size--;
     }
 }
 

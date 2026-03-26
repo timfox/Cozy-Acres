@@ -6,6 +6,14 @@
 #include "sys_math3d.h"
 #include "sys_matrix.h"
 
+#include <math.h>
+
+/** Keyframe rotation key (s16) scaled by 0.1 then interpreted as degrees → binangle, with stable rounding. */
+static inline s16 cKF_scaled_key_rot_to_short(s16 raw_key) {
+    f32 deg = MOD_F((f32)raw_key * 0.1f, 360.0f);
+    return (s16)lrintf(deg * (65536.0f / 360.0f));
+}
+
 /**
  * Resets and initializes a frame control structure with default parameters.
  * Sets all numerical properties to 1.0f and mode to cKF_FRAMECONTROL_STOP.
@@ -253,19 +261,17 @@ static s16 cKF_KeyCalc(s16 start_idx, s16 n_frames, s16* data_src, f32 frame) {
 }
 
 extern void cKF_SkeletonInfo_subRotInterpolation(f32 t, s16* out, s16 rot1, s16 rot2) {
-    u16 urot1 = rot1;
-    s32 pad;
-    u16 urot2 = rot2;
-    f32 f1 = rot1;
-    f32 signedDiff = rot2 - f1;
-    f32 f2 = urot1;
-    f32 unsignedDiff = urot2 - f2;
+    u16 a;
+    s16 diff;
+    s32 delta;
+    u32 r;
 
-    if (fabsf(signedDiff) < fabsf(unsignedDiff)) {
-        *out = f1 + signedDiff * t;
-    } else {
-        *out = f2 + unsignedDiff * t;
-    }
+    /* Shortest arc on the binangle ring; wrap through u16 to avoid float→s16 overflow (e.g. 32768). */
+    a = (u16)rot1;
+    diff = mLib_AngleDiffShortest(rot1, rot2);
+    delta = (s32)lrintf((f32)diff * t);
+    r = ((u32)a + (u32)delta) & 0xFFFFu;
+    *out = (s16)(u16)r;
 }
 
 /**
@@ -401,9 +407,10 @@ static void cKF_SkeletonInfo_R_morphJoint(cKF_SkeletonInfo_R_c* keyframe) {
             f32 difxyz = fabsf((f32)next_target_x - (f32)next_joint_x) + fabsf((f32)next_target_y - (f32)next_joint_y) +
                          fabsf((f32)next_target_z - (f32)next_joint_z);
 
-            s16 temp_vec_x = 0x7FFF + next_joint_x;
-            s16 temp_vec_y = 0x7FFF - next_joint_y;
-            s16 temp_vec_z = 0x7FFF + next_joint_z;
+            /* Match legacy s16 overflow wrapping via explicit narrow (implementation-defined → GCC wraps). */
+            s16 temp_vec_x = (s16)((s32)0x7FFF + (s32)next_joint_x);
+            s16 temp_vec_y = (s16)((s32)0x7FFF - (s32)next_joint_y);
+            s16 temp_vec_z = (s16)((s32)0x7FFF + (s32)next_joint_z);
 
             f32 dif_xyz2 = fabsf((f32)next_target_x - (f32)temp_vec_x) + fabsf((f32)next_target_y - (f32)temp_vec_y) +
                            fabsf((f32)next_target_z - (f32)temp_vec_z);
@@ -480,9 +487,6 @@ extern int cKF_SkeletonInfo_R_play(cKF_SkeletonInfo_R_c* keyframe) {
 
         // Process each joint x -> y -> z
         for (j = 0; j < 3; j++) {
-            f32 adjustedJointValue;
-            f32 mod;
-
             // Similar logic to above, but for each joint in the skeleton
             if (jointFlag & flagTable[i]) {
                 *jointValuePtr =
@@ -494,13 +498,11 @@ extern int cKF_SkeletonInfo_R_play(cKF_SkeletonInfo_R_c* keyframe) {
                 fixedTableIndex++;
             }
 
-            // Reduce the value by 90% and clamp to [0, 360) degrees converted back to binangle (s16)
-            // This effectively limits any joint's maximum rotation to be in the range of [-36.8, 36.7] degrees
-            adjustedJointValue = *jointValuePtr * 0.1f;
-            mod = MOD_F(adjustedJointValue, 360.0f);
-            *jointValuePtr = DEG2SHORT_ANGLE(mod);
+            {
+                s16 raw = *jointValuePtr;
+                *jointValuePtr = cKF_scaled_key_rot_to_short(raw);
+            }
             jointValuePtr++;
-
 
             jointFlag >>= 1; // Shift flag for next component x -> y -> z
         }
@@ -602,11 +604,7 @@ extern int cKF_SkeletonInfo_R_play(cKF_SkeletonInfo_R_c* keyframe) {
     int state;
     int jointIndex;
     s_xyz* currentJointPtr;
-    s16 fixedJointValue;
-    s16* currentJointValue;
-    cKF_Animation_R_c* animationData;
     int component;
-    f32 adjustedJointValue;
 
     int keyTableIndex = 0;
     int fixedTableIndex = 0;
@@ -672,10 +670,10 @@ extern int cKF_SkeletonInfo_R_play(cKF_SkeletonInfo_R_c* keyframe) {
             // Convert joint value to fixed-point format after scaling
             jointFlag >>= 1; // Shift flag for next component x -> y -> z
 
-            // Reduce the value by 90% and clamp to [0, 360) degrees converted back to binangle (s16)
-            // This effectively limits any joint's maximum rotation to be in the range of [-36.8, 36.7] degrees
-            adjustedJointValue = *jointValuePtr * 0.1f;
-            *jointValuePtr++ = DEG2SHORT_ANGLE(MOD_F(adjustedJointValue, 360.0f));
+            {
+                s16 raw = *jointValuePtr;
+                *jointValuePtr++ = cKF_scaled_key_rot_to_short(raw);
+            }
         }
     }
 

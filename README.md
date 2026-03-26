@@ -75,7 +75,7 @@ The shipped executable is always **32-bit x86 (i686)**. On **x86_64 Ubuntu** it 
    sudo apt update
    sudo apt install build-essential cmake ninja-build pkg-config \
      gcc-multilib g++-multilib \
-     libsdl2-dev:i386 libgl1-mesa-dev:i386
+     libsdl2-dev:i386 libgl1-mesa-dev:i386 libcurl4-openssl-dev:i386
    ```
 
 3. Build (or run **`./compile.sh`** — it picks native build on x86_64 and Docker on ARM):

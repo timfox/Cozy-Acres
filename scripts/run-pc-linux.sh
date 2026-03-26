@@ -9,7 +9,14 @@
 #
 # We do not set __GLX_VENDOR_LIBRARY_NAME here so the game can pick NVIDIA i386 GLX when
 # installed; use export __GLX_VENDOR_LIBRARY_NAME=mesa to force Mesa on hybrid systems.
+#
+# For USB/zip installs: export PC_PORTABLE_CONFIG=1 so settings.ini stays beside the binary
+# instead of under ~/.config or %APPDATA%.
 set -euo pipefail
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+fi
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 exe="$("$script_dir/pc-linux-resolve-exe.sh")"
 cd "$(dirname "$exe")"

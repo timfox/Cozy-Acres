@@ -97,7 +97,8 @@ if [ "${build_first}" = 1 ]; then
         ninja-build \
         pkg-config \
         libsdl2-dev:i386 \
-        libgl1-mesa-dev:i386
+        libgl1-mesa-dev:i386 \
+        libcurl4-openssl-dev:i386
     export PKG_CONFIG_LIBDIR=/usr/lib/i386-linux-gnu/pkgconfig
     export PKG_CONFIG_PATH=
     cd /work

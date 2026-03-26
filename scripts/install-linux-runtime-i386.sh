@@ -34,6 +34,6 @@ if ! apt-cache show libsdl2-2.0-0:i386 >/dev/null 2>&1; then
     exit 1
 fi
 
-sudo apt-get install -y libsdl2-2.0-0:i386 libgl1:i386
+sudo apt-get install -y libsdl2-2.0-0:i386 libgl1:i386 libcurl4:i386
 
 echo "Done. From pc/build32/bin run: ./AnimalCrossing"

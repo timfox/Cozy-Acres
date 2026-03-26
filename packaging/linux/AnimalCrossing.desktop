@@ -8,6 +8,10 @@ Icon=application-x-executable
 TryExec=AnimalCrossing
 Terminal=false
 Categories=Game;Simulation;
+Keywords=game;simulation;nintendo;gamecube;console;
+StartupNotify=true
+SingleMainWindow=true
+PrefersNonDefaultGPU=true
 StartupWMClass=AnimalCrossing
 # Working directory must be the folder that contains AnimalCrossing, rom/, shaders/, save/, etc.
 Path=REPLACE_WITH_PC_BUILD32_BIN_DIR

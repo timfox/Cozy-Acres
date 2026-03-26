@@ -36,7 +36,8 @@ jobs:
             gcc-multilib \
             g++-multilib \
             libsdl2-dev:i386 \
-            libgl1-mesa-dev:i386
+            libgl1-mesa-dev:i386 \
+            libcurl4-openssl-dev:i386
 
       - name: Build
         run: ./build_pc.sh

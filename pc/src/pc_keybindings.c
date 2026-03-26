@@ -1,6 +1,10 @@
 /* pc_keybindings.c - customizable keyboard bindings loaded from keybindings.ini */
 #include "pc_keybindings.h"
 #include "pc_platform.h"
+#include "pc_paths.h"
+
+#include <stdio.h>
+#include <string.h>
 
 PCKeybindings g_pc_keybindings = {
     /* buttons */
@@ -32,7 +36,7 @@ PCKeybindings g_pc_keybindings = {
     .dpad_right = SDL_SCANCODE_L,
 };
 
-static const char* KEYBINDINGS_FILE = "keybindings.ini";
+static char g_keybindings_ini_path[512];
 
 /* mapping table: ini key name -> offset into PCKeybindings */
 typedef struct {
@@ -83,7 +87,7 @@ static void trim_end(char* s) {
 static void apply_keybind(const char* key, const char* value) {
     SDL_Scancode sc = SDL_GetScancodeFromName(value);
     if (sc == SDL_SCANCODE_UNKNOWN) {
-        printf("[Keybindings] WARNING: unknown key name '%s' for '%s'\n", value, key);
+        fprintf(stderr, "[Keybindings] WARNING: unknown key name '%s' for '%s'\n", value, key);
         return;
     }
 
@@ -93,12 +97,15 @@ static void apply_keybind(const char* key, const char* value) {
             return;
         }
     }
-    printf("[Keybindings] WARNING: unknown binding '%s'\n", key);
+    fprintf(stderr, "[Keybindings] WARNING: unknown binding '%s'\n", key);
 }
 
 static void write_defaults(const char* path) {
     FILE* f = fopen(path, "w");
-    if (!f) return;
+    if (!f) {
+        fprintf(stderr, "[Keybindings] Cannot write %s (check permissions)\n", path);
+        return;
+    }
 
     fprintf(f, "[Keyboard]\n");
     fprintf(f, "# Key names use SDL2 scancode names.\n");
@@ -124,10 +131,19 @@ static void write_defaults(const char* path) {
 }
 
 void pc_keybindings_load(void) {
-    FILE* f = fopen(KEYBINDINGS_FILE, "r");
+    g_keybindings_ini_path[0] = '\0';
+
+    if (!pc_paths_find_config_file("keybindings.ini", g_keybindings_ini_path, sizeof(g_keybindings_ini_path))) {
+        pc_paths_default_config_file("keybindings.ini", g_keybindings_ini_path, sizeof(g_keybindings_ini_path));
+        write_defaults(g_keybindings_ini_path);
+        printf("[Keybindings] Created default %s\n", g_keybindings_ini_path);
+        return;
+    }
+
+    FILE* f = fopen(g_keybindings_ini_path, "r");
     if (!f) {
-        write_defaults(KEYBINDINGS_FILE);
-        printf("[Keybindings] Created default %s\n", KEYBINDINGS_FILE);
+        fprintf(stderr, "[Keybindings] Cannot open %s\n", g_keybindings_ini_path);
+        g_keybindings_ini_path[0] = '\0';
         return;
     }
 
@@ -151,5 +167,5 @@ void pc_keybindings_load(void) {
         }
     }
     fclose(f);
-    printf("[Keybindings] Loaded %s\n", KEYBINDINGS_FILE);
+    printf("[Keybindings] Loaded %s\n", g_keybindings_ini_path);
 }

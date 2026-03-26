@@ -28,12 +28,18 @@ static char* load_text_file(const char* path) {
 }
 
 static char* load_shader(const char* filename) {
-    char path[512];
+    /* Room for max exe dir (511) + "/shaders/" + long shader basename; avoid
+     * -Wformat-truncation on snprintf("%s/...%s", base, filename). */
+    char path[800];
     char base[512];
     char* src;
+    const int base_max = (int)sizeof(base) - 1;
+    const int name_max = 256;
 
     if (pc_get_executable_directory(base, sizeof(base))) {
-        snprintf(path, sizeof(path), "%s/shaders/%s", base, filename);
+        int n = snprintf(path, sizeof(path), "%.*s/shaders/%.*s", base_max, base, name_max, filename);
+        if (n < 0 || (size_t)n >= sizeof(path))
+            path[sizeof(path) - 1] = '\0';
         src = load_text_file(path);
         if (src) {
             printf("[PC/TEV] Loaded shader: %s\n", path);
@@ -41,7 +47,11 @@ static char* load_shader(const char* filename) {
         }
     }
 
-    snprintf(path, sizeof(path), "shaders/%s", filename);
+    {
+        int n = snprintf(path, sizeof(path), "shaders/%.*s", name_max, filename);
+        if (n < 0 || (size_t)n >= sizeof(path))
+            path[sizeof(path) - 1] = '\0';
+    }
     src = load_text_file(path);
     if (src) {
         printf("[PC/TEV] Loaded shader: %s\n", path);
